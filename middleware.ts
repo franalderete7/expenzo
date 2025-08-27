@@ -38,11 +38,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users away from home page
-  if (request.nextUrl.pathname === '/' && user) {
+  // Redirect authenticated users away from home page (only if not already redirecting)
+  if (request.nextUrl.pathname === '/' && user && !request.nextUrl.searchParams.has('redirected')) {
+    console.log('Middleware: Redirecting authenticated user to dashboard', user.id)
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
+    url.searchParams.set('redirected', 'true') // Prevent redirect loops
     return NextResponse.redirect(url)
+  }
+
+  // Log for debugging
+  if (request.nextUrl.pathname === '/') {
+    console.log('Middleware: Home page accessed', {
+      hasUser: !!user,
+      userId: user?.id,
+      hasRedirectedParam: request.nextUrl.searchParams.has('redirected')
+    })
   }
 
   return supabaseResponse

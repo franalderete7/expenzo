@@ -120,3 +120,61 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Ensure all interactive elements show cursor pointer */
+@layer utilities {
+  button,
+  [role="button"],
+  [data-radix-collection-item],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  [onclick],
+  [data-state="open"],
+  [data-state="closed"]:hover,
+  summary {
+    cursor: pointer;
+  }
+
+  /* Ensure clickable dropdown menu items have cursor pointer */
+  [data-radix-menu-item]:hover,
+  [data-radix-dropdown-menu-item]:hover,
+  [data-radix-context-menu-item]:hover {
+    cursor: pointer;
+  }
+
+  /* Ensure clickable alert dialog actions have cursor pointer */
+  [data-radix-alert-dialog-action],
+  [data-radix-alert-dialog-cancel] {
+    cursor: pointer;
+  }
+
+  /* Ensure sheet close button has cursor pointer */
+  [data-radix-dialog-close] {
+    cursor: pointer;
+  }
+
+  /* Ensure form elements that are interactive have cursor pointer */
+  input:not([type="text"]):not([type="email"]):not([type="password"]):not([type="number"]):not([type="tel"]):not([type="url"]):not([type="search"]):not([type="date"]):not([type="time"]):not([type="datetime-local"]):not([type="month"]):not([type="week"]):not([type="color"]):not([readonly]):not([disabled]),
+  select:not([disabled]),
+  textarea:not([readonly]):not([disabled]) {
+    cursor: pointer;
+  }
+
+  /* Override cursor-default for interactive elements */
+  [data-radix-menu-item],
+  [data-radix-dropdown-menu-item],
+  [data-radix-context-menu-item] {
+    cursor: pointer;
+  }
+
+  /* Ensure links have cursor pointer */
+  a[href] {
+    cursor: pointer;
+  }
+
+  /* Ensure clickable badges/cards have cursor pointer */
+  [onclick]:not(input):not(button):not(a):not(select):not(textarea) {
+    cursor: pointer;
+  }
+}
