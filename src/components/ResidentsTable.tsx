@@ -40,7 +40,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 
 import {
-  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Plus,
   Edit,
   Trash2,
@@ -94,7 +95,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
       fetchResidents()
       fetchUnits()
     }
-  }, [selectedProperty, sortField, sortDirection, currentPage])
+  }, [selectedProperty, currentPage])
 
   const fetchResidents = async () => {
     if (!selectedProperty) return
@@ -361,6 +362,29 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
     return role === 'owner' ? 'Propietario' : 'Inquilino'
   }
 
+  const getSortIcon = (field: string) => {
+    if (sortField === field) {
+      return sortDirection === 'asc' ?
+        <ArrowUp className="ml-2 h-4 w-4" /> :
+        <ArrowDown className="ml-2 h-4 w-4" />
+    }
+    return <ArrowUp className="ml-2 h-4 w-4 text-muted-foreground opacity-50" />
+  }
+
+  // Client-side sorting
+  const sortedResidents = [...residents].sort((a, b) => {
+    const aValue = a[sortField as keyof Resident]
+    const bValue = b[sortField as keyof Resident]
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
+    }
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
+    }
+    return 0
+  })
+
   if (!selectedProperty) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -515,7 +539,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   Nombre
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('name')}
                 </div>
               </TableHead>
               <TableHead
@@ -524,7 +548,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   Email
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('email')}
                 </div>
               </TableHead>
               <TableHead
@@ -533,7 +557,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   Teléfono
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('phone')}
                 </div>
               </TableHead>
               <TableHead>Unidad</TableHead>
@@ -543,7 +567,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   Rol
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('role')}
                 </div>
               </TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -564,7 +588,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
                 </TableCell>
               </TableRow>
             ) : (
-              residents.map((resident) => (
+              sortedResidents.map((resident) => (
                 <TableRow key={resident.id}>
                   <TableCell className="font-medium">{resident.name}</TableCell>
                   <TableCell>{resident.email || '-'}</TableCell>

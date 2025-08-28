@@ -43,7 +43,7 @@ import {
 import { useProperty } from '@/contexts/PropertyContext'
 import { Unit } from '@/types/entities'
 import { supabase } from '@/lib/supabase'
-import { Plus, Edit, Trash2, Home, ArrowUpDown } from 'lucide-react'
+import { Plus, Edit, Trash2, Home, ArrowUp, ArrowDown } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface UnitsTableRef {
@@ -101,7 +101,6 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
           )
         `)
         .eq('property_id', selectedProperty.id)
-        .order(sortField, { ascending: sortDirection === 'asc' })
 
       if (error) throw error
       setUnits(data || [])
@@ -112,11 +111,11 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
     } finally {
       setLoading(false)
     }
-  }, [selectedProperty, sortField, sortDirection])
+  }, [selectedProperty])
 
   useEffect(() => {
     fetchUnits()
-  }, [selectedProperty, sortField, sortDirection, fetchUnits])
+  }, [fetchUnits])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -126,6 +125,29 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
       setSortDirection('asc')
     }
   }
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField === field) {
+      return sortDirection === 'asc' ?
+        <ArrowUp className="ml-2 h-4 w-4" /> :
+        <ArrowDown className="ml-2 h-4 w-4" />
+    }
+    return <ArrowUp className="ml-2 h-4 w-4 text-muted-foreground opacity-50" />
+  }
+
+  // Client-side sorting
+  const sortedUnits = [...units].sort((a, b) => {
+    const aValue = a[sortField as keyof Unit]
+    const bValue = b[sortField as keyof Unit]
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
+    }
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
+    }
+    return 0
+  })
 
   const resetForm = () => {
     setFormData({
@@ -413,7 +435,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   Número
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('unit_number')}
                 </div>
               </TableHead>
               <TableHead
@@ -422,7 +444,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   Estado
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('status')}
                 </div>
               </TableHead>
               <TableHead
@@ -431,7 +453,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   % Expensas
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('expense_percentage')}
                 </div>
               </TableHead>
               <TableHead
@@ -440,7 +462,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
               >
                 <div className="flex items-center">
                   Creado
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                  {getSortIcon('created_at')}
                 </div>
               </TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -474,7 +496,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
                 </TableCell>
               </TableRow>
             ) : (
-              units.map((unit) => (
+              sortedUnits.map((unit) => (
                 <TableRow key={unit.id}>
                   <TableCell className="font-medium">{unit.unit_number}</TableCell>
                   <TableCell>

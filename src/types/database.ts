@@ -1,12 +1,12 @@
 // Database Types for Expenzo Application
 // Import entity types
-import type { Unit, Resident, Property, Admin, Expense } from './entities'
+import type { Unit, Resident, Property, Admin, Expense, Contract } from './entities'
 
 // Re-export all entity types
 export * from './entities'
 
 // Re-export individual types for backward compatibility
-export type { Unit, Resident, Property, Admin, Expense }
+export type { Unit, Resident, Property, Admin, Expense, Contract }
 
 export interface ICLValue {
   id: number
@@ -16,18 +16,7 @@ export interface ICLValue {
   created_at: string
 }
 
-export interface Contract {
-  id: number
-  unit_id: number
-  tenant_id: number
-  start_date: string
-  end_date: string
-  initial_rent_amount: number
-  rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
-  status: 'active' | 'expired' | 'renewed'
-  created_at: string
-  updated_at: string
-}
+
 
 
 
@@ -109,14 +98,7 @@ export interface ExpenseFormData {
 
 
 
-export interface ContractFormData {
-  unit_id: number
-  tenant_id: number
-  start_date: string
-  end_date: string
-  initial_rent_amount: number
-  rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
-}
+
 
 // API Response Types
 export interface ApiResponse<T> {

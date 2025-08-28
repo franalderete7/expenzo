@@ -6,6 +6,7 @@ import {
   Home,
   Users,
   DollarSign,
+  FileText,
   Loader2,
   Menu,
   X
@@ -33,14 +34,16 @@ interface DynamicSidebarProps {
   onCreateUnit?: () => void
   onCreateResident?: () => void
   onCreateExpense?: () => void
-  onTabChange?: (tab: 'units' | 'residents' | 'expenses') => void
-  activeTab?: 'units' | 'residents' | 'expenses'
+  onCreateContract?: () => void
+  onTabChange?: (tab: 'units' | 'residents' | 'expenses' | 'contracts') => void
+  activeTab?: 'units' | 'residents' | 'expenses' | 'contracts'
 }
 
 export function DynamicSidebar({
   onCreateUnit,
   onCreateResident,
   onCreateExpense,
+  onCreateContract,
   onTabChange,
   activeTab = 'units'
 }: DynamicSidebarProps) {
@@ -62,7 +65,7 @@ export function DynamicSidebar({
 
     setLoading(true)
     try {
-      const [unitsRes, residentsRes, expensesRes] = await Promise.all([
+      const [unitsRes, residentsRes, expensesRes, contractsRes] = await Promise.all([
         supabase
           .from('units')
           .select('*, residents(name, email)')
@@ -78,6 +81,16 @@ export function DynamicSidebar({
           .select('*')
           .eq('property_id', selectedPropertyId)
           .order('date', { ascending: false })
+          .limit(10),
+        supabase
+          .from('contracts')
+          .select(`
+            *,
+            unit:units(unit_number),
+            tenant:residents(name)
+          `)
+          .eq('unit.property_id', selectedPropertyId)
+          .order('created_at', { ascending: false })
           .limit(10)
       ])
 
@@ -114,6 +127,25 @@ export function DynamicSidebar({
             status: 'expense',
             type: 'expense'
           })),
+        },
+        {
+          title: 'Contratos',
+          icon: FileText,
+          items: (contractsRes.data && contractsRes.data.length > 0)
+            ? contractsRes.data.map(contract => ({
+                id: contract.id,
+                name: `${contract.tenant?.name || 'Sin Inquilino'} - Unidad ${contract.unit?.unit_number || 'N/A'}`,
+                subtitle: `$${contract.initial_rent_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`,
+                status: contract.status,
+                type: 'contract'
+              }))
+            : [{
+                id: 'no-contracts',
+                name: 'No hay contratos',
+                subtitle: 'Crea tu primer contrato',
+                status: 'none',
+                type: 'contract'
+              }],
         }
       ]
 
@@ -167,7 +199,7 @@ export function DynamicSidebar({
   }
 
   return (
-    <div className={`${isCollapsed ? 'w-16' : 'w-80'} border-r bg-background transition-all duration-300 ease-in-out`}>
+    <div className={`${isCollapsed ? 'w-16' : 'w-80'} border-r bg-background transition-all duration-300 ease-in-out h-full`}>
       <div className="p-4 border-b">
         <div className="flex items-center justify-end">
           <Button
@@ -187,7 +219,7 @@ export function DynamicSidebar({
 
       {!isCollapsed && (
         <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 pb-6">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -200,7 +232,8 @@ export function DynamicSidebar({
                     className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors hover:bg-muted/50 ${
                       (section.title === 'Unidades' && activeTab === 'units') ||
                       (section.title === 'Residentes' && activeTab === 'residents') ||
-                      (section.title === 'Gastos' && activeTab === 'expenses')
+                      (section.title === 'Gastos' && activeTab === 'expenses') ||
+                      (section.title === 'Contratos' && activeTab === 'contracts')
                         ? 'bg-muted font-medium'
                         : ''
                     }`}
@@ -211,6 +244,8 @@ export function DynamicSidebar({
                         onTabChange('residents')
                       } else if (section.title === 'Gastos' && onTabChange) {
                         onTabChange('expenses')
+                      } else if (section.title === 'Contratos' && onTabChange) {
+                        onTabChange('contracts')
                       }
                     }}
                   >
@@ -228,14 +263,15 @@ export function DynamicSidebar({
       )}
 
       {isCollapsed && (
-        <div className="flex-1 flex flex-col items-center py-4 space-y-2">
+        <div className="flex-1 flex flex-col items-center py-4 space-y-2 pb-6">
           {sections.map((section) => (
             <div
               key={section.title}
               className={`w-12 h-12 flex items-center justify-center cursor-pointer rounded-md transition-colors hover:bg-muted/50 ${
                 (section.title === 'Unidades' && activeTab === 'units') ||
                 (section.title === 'Residentes' && activeTab === 'residents') ||
-                (section.title === 'Gastos' && activeTab === 'expenses')
+                (section.title === 'Gastos' && activeTab === 'expenses') ||
+                (section.title === 'Contratos' && activeTab === 'contracts')
                   ? 'bg-muted'
                   : ''
               }`}
@@ -247,6 +283,8 @@ export function DynamicSidebar({
                   onTabChange('residents')
                 } else if (section.title === 'Gastos' && onTabChange) {
                   onTabChange('expenses')
+                } else if (section.title === 'Contratos' && onTabChange) {
+                  onTabChange('contracts')
                 }
               }}
             >

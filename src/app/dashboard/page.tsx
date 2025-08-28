@@ -12,6 +12,7 @@ import { ArrowLeft } from 'lucide-react'
 import { UnitsTable } from '@/components/UnitsTable'
 import { ResidentsTable } from '@/components/ResidentsTable'
 import { ExpensesTable } from '@/components/ExpensesTable'
+import { ContractsTable } from '@/components/ContractsTable'
 import { Toaster } from 'sonner'
 
 // Inner component that uses the context
@@ -22,7 +23,8 @@ function DashboardInner() {
   const unitsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
   const residentsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
   const expensesTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
-  const [activeTab, setActiveTab] = useState<'units' | 'residents' | 'expenses'>('units')
+  const contractsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
+  const [activeTab, setActiveTab] = useState<'units' | 'residents' | 'expenses' | 'contracts'>('units')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -60,7 +62,13 @@ function DashboardInner() {
     }
   }
 
-  const handleTabChange = (tab: 'units' | 'residents' | 'expenses') => {
+  const handleCreateContract = () => {
+    if (contractsTableRef.current) {
+      contractsTableRef.current.openCreateDialog()
+    }
+  }
+
+  const handleTabChange = (tab: 'units' | 'residents' | 'expenses' | 'contracts') => {
     setActiveTab(tab)
   }
 
@@ -88,7 +96,7 @@ function DashboardInner() {
         </div>
       ) : (
         /* Property-Specific View */
-        <div className="min-h-[calc(100vh-64px)]">
+        <div className="min-h-[calc(100vh-64px)] flex flex-col">
           {/* Header with back button and property switcher */}
           <div className="w-full border-b bg-background/95 backdrop-blur">
             <div className="flex h-16 items-center px-6 gap-4">
@@ -118,23 +126,26 @@ function DashboardInner() {
           </div>
 
           {/* Property-specific content with sidebar */}
-          <div className="flex flex-1">
+          <div className="flex flex-1 min-h-0">
             <DynamicSidebar
               onCreateUnit={handleCreateUnit}
               onCreateResident={handleCreateResident}
               onCreateExpense={handleCreateExpense}
+              onCreateContract={handleCreateContract}
               onTabChange={handleTabChange}
               activeTab={activeTab}
             />
 
-            <main className="flex-1 p-6">
+            <main className="flex-1 p-6 overflow-auto">
               <div className="space-y-6">
                 {activeTab === 'units' ? (
                   <UnitsTable ref={unitsTableRef} />
                 ) : activeTab === 'residents' ? (
                   <ResidentsTable ref={residentsTableRef} />
-                ) : (
+                ) : activeTab === 'expenses' ? (
                   <ExpensesTable ref={expensesTableRef} />
+                ) : (
+                  <ContractsTable ref={contractsTableRef} />
                 )}
               </div>
             </main>

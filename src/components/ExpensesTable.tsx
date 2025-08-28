@@ -41,7 +41,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowUpDown, Plus, Edit, Trash2, DollarSign, Filter } from 'lucide-react'
+import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useProperty } from '@/contexts/PropertyContext'
@@ -115,28 +115,15 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
 
       const { expenses: fetchedExpenses } = await response.json()
 
-      // Sort expenses
-      const sortedExpenses = [...fetchedExpenses].sort((a, b) => {
-        const aValue = a[sortField as keyof Expense]
-        const bValue = b[sortField as keyof Expense]
-
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
-        }
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
-        }
-        return 0
-      })
-
-      setExpenses(sortedExpenses)
+      // Store unsorted expenses - sorting will be done client-side
+      setExpenses(fetchedExpenses || [])
     } catch (error) {
       console.error('Error fetching expenses:', error)
       toast.error(error instanceof Error ? error.message : 'Error fetching expenses')
     } finally {
       setLoading(false)
     }
-  }, [selectedProperty, filterMonth, filterYear, filterType, sortField, sortDirection])
+  }, [selectedProperty, filterMonth, filterYear, filterType])
 
   useEffect(() => {
     fetchExpenses()
@@ -321,10 +308,26 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
 
   const getSortIcon = (field: SortField) => {
     if (sortField === field) {
-      return sortDirection === 'asc' ? <ArrowUpDown className="ml-2 h-4 w-4 rotate-180" /> : <ArrowUpDown className="ml-2 h-4 w-4" />
+      return sortDirection === 'asc' ?
+        <ArrowUp className="ml-2 h-4 w-4" /> :
+        <ArrowDown className="ml-2 h-4 w-4" />
     }
-    return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+    return <ArrowUp className="ml-2 h-4 w-4 text-muted-foreground opacity-50" />
   }
+
+  // Client-side sorting
+  const sortedExpenses = [...expenses].sort((a, b) => {
+    const aValue = a[sortField as keyof Expense]
+    const bValue = b[sortField as keyof Expense]
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
+    }
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
+    }
+    return 0
+  })
 
   const getExpenseTypeBadgeVariant = (type: string) => {
     const colors = ['default', 'secondary', 'destructive', 'outline'] as const
@@ -549,7 +552,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
                 </TableCell>
               </TableRow>
             ) : (
-              expenses.map((expense) => (
+              sortedExpenses.map((expense) => (
                 <TableRow key={expense.id}>
                   <TableCell className="font-medium">
                     <Badge variant={getExpenseTypeBadgeVariant(expense.expense_type)}>
