@@ -8,6 +8,7 @@ export interface Expense {
   description?: string
   created_at: string
   updated_at?: string
+  monthly_expense_summary_id?: number
   property?: {
     id: number
     name: string

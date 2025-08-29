@@ -184,10 +184,10 @@ export default function Home() {
 
             {showRedirectMessage ? (
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6 max-w-md mx-auto">
-                <p className="text-primary font-medium flex items-center justify-center gap-2">
+                <div className="text-primary font-medium flex items-center justify-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                   Redirigiendo al panel de control...
-                </p>
+                </div>
               </div>
             ) : (
               <Button size="lg" className="text-lg px-8 py-3 cursor-pointer">

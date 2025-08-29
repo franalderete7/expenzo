@@ -62,9 +62,9 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
   // Filter states
-  const [filterMonth, setFilterMonth] = useState<string>('all')
-  const [filterYear, setFilterYear] = useState<string>('all')
-  const [filterType, setFilterType] = useState<string>('all')
+  const [filterMonth, setFilterMonth] = useState<string>((new Date().getMonth() + 1).toString())
+  const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString())
+  const [monthlyTotal, setMonthlyTotal] = useState<number>(0)
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -98,8 +98,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       const params = new URLSearchParams({
         property_id: selectedProperty.id.toString(),
         ...(filterMonth && filterMonth !== 'all' && { month: filterMonth }),
-        ...(filterYear && filterYear !== 'all' && { year: filterYear }),
-        ...(filterType && filterType !== 'all' && { expense_type: filterType })
+        ...(filterYear && filterYear !== 'all' && { year: filterYear })
       })
 
       const response = await fetch(`/api/expenses?${params}`, {
@@ -113,17 +112,24 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
         throw new Error(errorData.error || 'Error fetching expenses')
       }
 
-      const { expenses: fetchedExpenses } = await response.json()
+      const { expenses: fetchedExpenses, monthlyTotal: fetchedMonthlyTotal } = await response.json()
 
       // Store unsorted expenses - sorting will be done client-side
       setExpenses(fetchedExpenses || [])
+      const numericMonthlyTotal =
+        typeof fetchedMonthlyTotal === 'string'
+          ? parseFloat(fetchedMonthlyTotal) || 0
+          : typeof fetchedMonthlyTotal === 'number'
+            ? fetchedMonthlyTotal
+            : 0
+      setMonthlyTotal(numericMonthlyTotal)
     } catch (error) {
       console.error('Error fetching expenses:', error)
       toast.error(error instanceof Error ? error.message : 'Error fetching expenses')
     } finally {
       setLoading(false)
     }
-  }, [selectedProperty, filterMonth, filterYear, filterType])
+  }, [selectedProperty, filterMonth, filterYear])
 
   useEffect(() => {
     fetchExpenses()
@@ -335,17 +341,15 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   }
 
   const clearFilters = () => {
-    setFilterMonth('all')
-    setFilterYear('all')
-    setFilterType('all')
+    setFilterMonth((new Date().getMonth() + 1).toString())
+    setFilterYear(new Date().getFullYear().toString())
   }
 
   // Generate years for filter (current year and 5 years back)
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i)
 
-  // Get unique expense types for filter (exclude empty strings)
-  const uniqueExpenseTypes = Array.from(new Set(expenses.map(e => e.expense_type).filter(type => type && type.trim() !== ''))).sort()
+
 
   if (!selectedProperty) {
     return (
@@ -437,56 +441,50 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
-        <Filter className="h-5 w-5 text-muted-foreground" />
-        <span className="font-medium">Filtros:</span>
+      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+        <div className="flex items-center gap-4">
+          <Filter className="h-5 w-5 text-muted-foreground" />
+          <span className="font-medium">Filtros:</span>
 
-        <Select value={filterYear || 'all'} onValueChange={setFilterYear}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Año" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {years.map(year => (
-              <SelectItem key={year} value={year.toString()}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={filterYear} onValueChange={setFilterYear}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Año" />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map(year => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={filterMonth || 'all'} onValueChange={setFilterMonth}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Mes" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-              <SelectItem key={month} value={month.toString()}>
-                {new Date(0, month - 1).toLocaleString('es-ES', { month: 'long' })}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={filterMonth} onValueChange={setFilterMonth}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Mes" />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                <SelectItem key={month} value={month.toString()}>
+                  {new Date(0, month - 1).toLocaleString('es-ES', { month: 'long' })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={filterType || 'all'} onValueChange={setFilterType}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Tipo de gasto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {uniqueExpenseTypes.map(type => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {(filterYear !== 'all' || filterMonth !== 'all' || filterType !== 'all') && (
           <Button variant="outline" onClick={clearFilters}>
-            Limpiar
+            Restablecer
           </Button>
+        </div>
+
+        {/* Monthly Total Display - only when filtered by month and year */}
+        {filterMonth && filterYear && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Total del mes:</span>
+            <span className="font-bold text-green-600">
+              ${monthlyTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
         )}
       </div>
 

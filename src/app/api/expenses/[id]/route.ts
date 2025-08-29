@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Helper function to get admin client for bypassing RLS
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -112,7 +126,7 @@ export async function PUT(
     // Get user's admin record
     const { data: adminRecord, error: adminError } = await supabaseWithToken
       .from('admins')
-      .select('id')
+      .select('id, user_id')
       .eq('user_id', user.id)
       .single()
 
@@ -126,6 +140,9 @@ export async function PUT(
       .select(`
         id,
         property_id,
+        amount,
+        date,
+        monthly_expense_summary_id,
         properties!inner (
           id,
           admin_id
@@ -143,7 +160,7 @@ export async function PUT(
       .from('properties')
       .select('id')
       .eq('id', existingExpense.property_id)
-      .eq('admin_id', adminRecord.id)
+      .eq('admin_id', adminRecord.user_id)
       .single()
 
     if (propertyError || !property) {
@@ -172,6 +189,148 @@ export async function PUT(
       .single()
 
     if (error) throw error
+
+    // Update monthly expenses summary by moving monthly_expense_summary_id if needed and recalculating totals
+    const oldExpenseDate = new Date(existingExpense.date)
+    const newExpenseDate = new Date(date)
+    const oldPeriodYear = oldExpenseDate.getFullYear()
+    const oldPeriodMonth = oldExpenseDate.getMonth() + 1
+    const newPeriodYear = newExpenseDate.getFullYear()
+    const newPeriodMonth = newExpenseDate.getMonth() + 1
+
+    // If the date changed, we need to handle both old and new periods
+    if (oldPeriodYear !== newPeriodYear || oldPeriodMonth !== newPeriodMonth) {
+      // Subtract from old period
+      const { data: oldSummary } = await supabaseWithToken
+        .from('monthly_expense_summaries')
+        .select('id, total_expenses')
+        .eq('property_id', existingExpense.property_id)
+        .eq('period_year', oldPeriodYear)
+        .eq('period_month', oldPeriodMonth)
+        .single()
+
+      if (oldSummary) {
+        const newTotal = Math.max(0, oldSummary.total_expenses - existingExpense.amount)
+
+        // Use admin client to bypass potential RLS issues
+        const adminClient = getAdminClient()
+        const { error: oldUpdateError } = await adminClient
+          .from('monthly_expense_summaries')
+          .update({ total_expenses: newTotal })
+          .eq('id', oldSummary.id)
+
+        if (oldUpdateError) {
+          console.error('Error updating old monthly summary:', oldUpdateError, {
+            summaryId: oldSummary.id,
+            oldTotal: oldSummary.total_expenses,
+            amount: existingExpense.amount,
+            newTotal
+          })
+        } else {
+          console.log(`Updated old summary ${oldSummary.id} total to ${newTotal}`)
+        }
+      }
+
+      // Ensure/get new period summary
+      let newSummaryId: number | null = null
+      const { data: newSummary } = await supabaseWithToken
+        .from('monthly_expense_summaries')
+        .select('id, total_expenses')
+        .eq('property_id', existingExpense.property_id)
+        .eq('period_year', newPeriodYear)
+        .eq('period_month', newPeriodMonth)
+        .eq('admin_id', adminRecord.user_id)
+        .single()
+
+      if (newSummary) {
+        newSummaryId = newSummary.id
+      } else {
+        // Create new monthly summary - bypass RLS for this operation
+        const supabaseAdmin = getAdminClient()
+
+        const { data: insertedNewSummary, error: insertError } = await supabaseAdmin
+          .from('monthly_expense_summaries')
+          .insert({
+            property_id: existingExpense.property_id,
+            period_year: newPeriodYear,
+            period_month: newPeriodMonth,
+            total_expenses: 0,
+            admin_id: adminRecord.user_id
+          })
+          .select('id')
+          .single()
+
+        if (insertError) {
+          console.error('Error creating new monthly summary:', insertError)
+        } else {
+          newSummaryId = insertedNewSummary?.id || null
+        }
+      }
+
+      // Update the expense to point to the new monthly summary
+      if (newSummaryId) {
+        await supabaseWithToken
+          .from('expenses')
+          .update({ monthly_expense_summary_id: newSummaryId })
+          .eq('id', expenseId)
+      }
+
+      if (newSummaryId) {
+        // Add the expense amount to the new summary
+        const newTotal = (newSummary?.total_expenses || 0) + parseFloat(amount)
+
+        // Use admin client to bypass potential RLS issues
+        const adminClient = getAdminClient()
+        const { error: newUpdateError } = await adminClient
+          .from('monthly_expense_summaries')
+          .update({ total_expenses: newTotal })
+          .eq('id', newSummaryId)
+
+        if (newUpdateError) {
+          console.error('Error updating new monthly summary:', newUpdateError, {
+            summaryId: newSummaryId,
+            oldTotal: newSummary?.total_expenses || 0,
+            amount: parseFloat(amount),
+            newTotal
+          })
+        } else {
+          console.log(`Updated new summary ${newSummaryId} total to ${newTotal}`)
+        }
+      }
+    } else {
+      // Same period, update the difference directly
+      const { data: summary } = await supabaseWithToken
+        .from('monthly_expense_summaries')
+        .select('id, total_expenses')
+        .eq('property_id', existingExpense.property_id)
+        .eq('period_year', oldPeriodYear)
+        .eq('period_month', oldPeriodMonth)
+        .eq('admin_id', adminRecord.user_id)
+        .single()
+
+      if (summary) {
+        const amountDifference = parseFloat(amount) - existingExpense.amount
+        const newTotal = summary.total_expenses + amountDifference
+
+        // Use admin client to bypass potential RLS issues
+        const adminClient = getAdminClient()
+        const { error: updateError } = await adminClient
+          .from('monthly_expense_summaries')
+          .update({ total_expenses: newTotal })
+          .eq('id', summary.id)
+
+        if (updateError) {
+          console.error('Error updating monthly summary:', updateError, {
+            summaryId: summary.id,
+            oldTotal: summary.total_expenses,
+            amountDifference,
+            newTotal
+          })
+        } else {
+          console.log(`Updated summary ${summary.id} total to ${newTotal}`)
+        }
+      }
+    }
 
     return NextResponse.json({
       expense: updatedExpense,
@@ -217,7 +376,7 @@ export async function DELETE(
     // Get user's admin record
     const { data: adminRecord, error: adminError } = await supabaseWithToken
       .from('admins')
-      .select('id')
+      .select('id, user_id')
       .eq('user_id', user.id)
       .single()
 
@@ -231,6 +390,8 @@ export async function DELETE(
       .select(`
         id,
         property_id,
+        amount,
+        date,
         properties!inner (
           id,
           admin_id
@@ -248,7 +409,7 @@ export async function DELETE(
       .from('properties')
       .select('id')
       .eq('id', existingExpense.property_id)
-      .eq('admin_id', adminRecord.id)
+      .eq('admin_id', adminRecord.user_id)
       .single()
 
     if (propertyError || !property) {
@@ -261,6 +422,43 @@ export async function DELETE(
       .eq('id', expenseId)
 
     if (error) throw error
+
+    // Update monthly expenses summary
+    const expenseDate = new Date(existingExpense.date)
+    const periodYear = expenseDate.getFullYear()
+    const periodMonth = expenseDate.getMonth() + 1
+
+    const { data: summary } = await supabaseWithToken
+      .from('monthly_expense_summaries')
+      .select('id, total_expenses')
+      .eq('property_id', existingExpense.property_id)
+      .eq('period_year', periodYear)
+      .eq('period_month', periodMonth)
+      .eq('admin_id', adminRecord.user_id)
+      .single()
+
+    if (summary) {
+      // Subtract the deleted expense amount from the summary total
+      const newTotal = Math.max(0, summary.total_expenses - existingExpense.amount)
+
+      // Use admin client to bypass potential RLS issues
+      const adminClient = getAdminClient()
+      const { error: updateError } = await adminClient
+        .from('monthly_expense_summaries')
+        .update({ total_expenses: newTotal })
+        .eq('id', summary.id)
+
+      if (updateError) {
+        console.error('Error updating monthly summary after deletion:', updateError, {
+          summaryId: summary.id,
+          oldTotal: summary.total_expenses,
+          amount: existingExpense.amount,
+          newTotal
+        })
+      } else {
+        console.log(`Updated summary ${summary.id} total to ${newTotal} after deletion`)
+      }
+    }
 
     return NextResponse.json({ message: 'Expense deleted successfully' })
   } catch (error) {

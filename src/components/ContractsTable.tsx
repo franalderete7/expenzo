@@ -76,8 +76,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     initial_rent_amount: 0,
     rent_increase_frequency: 'quarterly',
     status: 'active',
-    currency: 'USD',
-    rent_increase_index: ''
+    currency: 'ARS',
+    rent_increase_index: 'ICL'
   })
 
   useImperativeHandle(ref, () => ({
@@ -193,8 +193,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       initial_rent_amount: 0,
       rent_increase_frequency: 'quarterly',
       status: 'active',
-      currency: 'USD',
-      rent_increase_index: ''
+      currency: 'ARS',
+      rent_increase_index: 'ICL'
     })
   }
 
@@ -280,8 +280,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       initial_rent_amount: contract.initial_rent_amount,
       rent_increase_frequency: contract.rent_increase_frequency,
       status: contract.status,
-      currency: contract.currency || 'USD',
-      rent_increase_index: contract.rent_increase_index || ''
+      currency: contract.currency || 'ARS',
+      rent_increase_index: contract.rent_increase_index || 'ICL'
     })
     setEditDialogOpen(true)
   }
@@ -568,24 +568,33 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="currency" className="text-right">Moneda</Label>
-                <Input
-                  id="currency"
+                <Select
                   value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                  className="col-span-3"
-                  placeholder="USD"
-                />
+                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Seleccionar moneda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
+                    <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="rent_increase_index" className="text-right">Índice Aumento</Label>
-                <Input
-                  id="rent_increase_index"
+                <Select
                   value={formData.rent_increase_index}
-                  onChange={(e) => setFormData({ ...formData, rent_increase_index: e.target.value })}
-                  className="col-span-3"
-                  placeholder="Ej: IPC, UVT, etc."
-                />
+                  onValueChange={(value) => setFormData({ ...formData, rent_increase_index: value })}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Seleccionar índice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ICL">ICL (Índice de Contratos de Locación)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
@@ -860,22 +869,33 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_currency" className="text-right">Moneda</Label>
-              <Input
-                id="edit_currency"
+              <Select
                 value={formData.currency}
-                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                className="col-span-3"
-              />
+                onValueChange={(value) => setFormData({ ...formData, currency: value })}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar moneda" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
+                  <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_rent_increase_index" className="text-right">Índice Aumento</Label>
-              <Input
-                id="edit_rent_increase_index"
+              <Select
                 value={formData.rent_increase_index}
-                onChange={(e) => setFormData({ ...formData, rent_increase_index: e.target.value })}
-                className="col-span-3"
-              />
+                onValueChange={(value) => setFormData({ ...formData, rent_increase_index: value })}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar índice" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ICL">ICL (Índice de Contratos de Locación)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

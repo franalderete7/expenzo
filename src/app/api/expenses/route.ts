@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Helper function to get admin client for bypassing RLS
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -121,6 +135,31 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
+    // Get monthly total if filtering by month and year
+    let monthlyTotal = 0
+    if (month && year) {
+      const { data: monthlySummary } = await supabaseWithToken
+        .from('monthly_expense_summaries')
+        .select('total_expenses')
+        .eq('property_id', propertyId)
+        .eq('period_year', parseInt(year))
+        .eq('period_month', parseInt(month))
+        .eq('admin_id', adminRecord.user_id)
+        .single()
+
+      const fromSummary = monthlySummary?.total_expenses
+      const parsedSummary =
+        typeof fromSummary === 'string' ? parseFloat(fromSummary) : (fromSummary || 0)
+
+      if (!isNaN(parsedSummary) && parsedSummary > 0) {
+        monthlyTotal = parsedSummary
+      } else {
+        // Fallback: derive from fetched expenses in this response
+        const sum = (expenses || []).reduce((acc: number, e: { amount: number | string }) => acc + (Number(e.amount) || 0), 0)
+        monthlyTotal = sum
+      }
+    }
+
     return NextResponse.json({
       expenses: expenses || [],
       pagination: {
@@ -128,7 +167,8 @@ export async function GET(request: NextRequest) {
         limit,
         total: count || 0,
         totalPages: Math.ceil((count || 0) / limit)
-      }
+      },
+      monthlyTotal
     })
   } catch (error) {
     console.error('Get expenses error:', error)
@@ -195,6 +235,82 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Property not found or access denied' }, { status: 404 })
     }
 
+    // Ensure monthly summary exists (and get id)
+    const expenseDate = new Date(date)
+    const periodYear = expenseDate.getFullYear()
+    const periodMonth = expenseDate.getMonth() + 1
+
+    let monthlySummaryId: number | null = null
+    {
+      // Use admin client for both querying and updating summaries to avoid RLS issues
+      const adminClient = getAdminClient()
+      const { data: existingSummary, error: summaryError } = await adminClient
+        .from('monthly_expense_summaries')
+        .select('id, total_expenses')
+        .eq('property_id', property_id)
+        .eq('period_year', periodYear)
+        .eq('period_month', periodMonth)
+        .eq('admin_id', adminRecord.user_id)
+        .single()
+
+      if (summaryError) {
+        console.error('Error querying existing summary:', summaryError, {
+          property_id,
+          periodYear,
+          periodMonth,
+          admin_id: adminRecord.user_id
+        })
+      }
+
+      if (existingSummary?.id) {
+        monthlySummaryId = existingSummary.id
+        console.log(`✅ Found existing summary ${existingSummary.id} with total ${existingSummary.total_expenses}, monthlySummaryId set to ${monthlySummaryId}, adding ${parseFloat(amount)}`)
+
+        // Update existing summary total by adding this expense's amount
+        const newTotal = existingSummary.total_expenses + parseFloat(amount)
+
+        const { error: updateError } = await adminClient
+          .from('monthly_expense_summaries')
+          .update({
+            total_expenses: newTotal
+          })
+          .eq('id', existingSummary.id)
+
+        if (updateError) {
+          console.error('Error updating existing monthly summary total:', updateError, {
+            summaryId: existingSummary.id,
+            oldTotal: existingSummary.total_expenses,
+            amount: parseFloat(amount),
+            newTotal
+          })
+        } else {
+          console.log(`Successfully updated summary ${existingSummary.id} total to ${newTotal}`)
+        }
+      } else {
+        console.log(`❌ No existing summary found for property ${property_id}, year ${periodYear}, month ${periodMonth}, admin ${adminRecord.user_id}, monthlySummaryId will be set from new summary`)
+        const { data: insertedSummary, error: insertSummaryError } = await adminClient
+          .from('monthly_expense_summaries')
+          .insert({
+            property_id,
+            period_year: periodYear,
+            period_month: periodMonth,
+            total_expenses: parseFloat(amount), // Start with this expense's amount
+            admin_id: adminRecord.user_id
+          })
+          .select('id')
+          .single()
+
+        if (!insertSummaryError && insertedSummary?.id) {
+          monthlySummaryId = insertedSummary.id
+          console.log(`✅ Created new summary ${insertedSummary.id}, monthlySummaryId set to ${monthlySummaryId}`)
+        } else {
+          console.error('❌ Failed to create new summary:', insertSummaryError, insertedSummary)
+        }
+      }
+    }
+
+    console.log(`📝 Inserting expense with monthly_expense_summary_id: ${monthlySummaryId}`)
+
     const { data: expense, error } = await supabaseWithToken
       .from('expenses')
       .insert({
@@ -202,7 +318,8 @@ export async function POST(request: NextRequest) {
         expense_type,
         amount: parseFloat(amount),
         date,
-        description: description || null
+        description: description || null,
+        monthly_expense_summary_id: monthlySummaryId
       })
       .select(`
         *,
@@ -216,6 +333,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+
 
     return NextResponse.json({
       expense,

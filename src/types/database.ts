@@ -27,6 +27,8 @@ export interface MonthlyExpenseSummary {
   period_month: number
   total_expenses: number
   created_at: string
+  updated_at: string
+  admin_id: string
   allocations?: ExpenseAllocation[]
 }
 
@@ -94,6 +96,7 @@ export interface ExpenseFormData {
   amount: number
   date: string
   description?: string
+  monthly_expense_summary_id?: number
 }
 
 
