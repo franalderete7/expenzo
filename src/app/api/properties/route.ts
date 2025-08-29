@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,17 +7,87 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const offset = (page - 1) * limit
 
-    // TEMPORARY: Use service role to bypass RLS
+    // Extract authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Properties API: No authorization header or invalid format')
+      return NextResponse.json(
+        { error: 'Unauthorized - No valid authorization header' },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+    console.log('Properties API: Token extracted, length:', token.length)
+
+    // Create Supabase client with the user's token
     const { createClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createClient(
+    const supabaseWithToken = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
     )
 
-    // Get all properties
-    const { data: properties, error, count } = await supabaseAdmin
+    // Get current user
+    console.log('Properties API: Attempting to get user...')
+    const { data: { user }, error: userError } = await supabaseWithToken.auth.getUser()
+
+    if (userError) {
+      console.log('Properties API: User error:', userError)
+      return NextResponse.json(
+        { error: 'Unauthorized - User authentication failed', details: userError.message },
+        { status: 401 }
+      )
+    }
+
+    if (!user) {
+      console.log('Properties API: No user found')
+      return NextResponse.json(
+        { error: 'Unauthorized - No user data' },
+        { status: 401 }
+      )
+    }
+
+    console.log('Properties API: User authenticated successfully:', user.id)
+
+    // Get admin record for the current user
+    console.log('Properties API: Looking up admin record for user:', user.id)
+    const { data: adminRecord, error: adminError } = await supabaseWithToken
+      .from('admins')
+      .select('id, user_id') // Need both id and user_id
+      .eq('user_id', user.id)
+      .single()
+
+    if (adminError) {
+      console.log('Properties API: Admin lookup error:', adminError)
+      return NextResponse.json(
+        { error: 'Admin record not found', details: adminError.message },
+        { status: 404 }
+      )
+    }
+
+    if (!adminRecord) {
+      console.log('Properties API: No admin record found for user:', user.id)
+      return NextResponse.json(
+        { error: 'Admin record not found - no data returned' },
+        { status: 404 }
+      )
+    }
+
+    console.log('Properties API: Admin record found - ID:', adminRecord.id, 'User ID:', adminRecord.user_id)
+
+    // Get properties owned by the current admin (properties.admin_id holds user.id UUID per current DB)
+    console.log('Properties API: Fetching properties for user UUID:', user.id)
+    const { data: properties, error, count } = await supabaseWithToken
       .from('properties')
       .select('*', { count: 'exact' })
+      .eq('admin_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -53,8 +122,80 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, street_address, city, description } = body
 
-    // TEMPORARY: Since RLS is disabled, skip authentication
-    // TODO: Re-enable authentication when RLS is properly configured
+    // Extract authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Properties POST: No authorization header or invalid format')
+      return NextResponse.json(
+        { error: 'Unauthorized - No valid authorization header' },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+    console.log('Properties POST: Token extracted, length:', token.length)
+
+    // Create Supabase client with the user's token
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseWithToken = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    )
+
+    // Get current user
+    console.log('Properties POST: Attempting to get user...')
+    const { data: { user }, error: userError } = await supabaseWithToken.auth.getUser()
+
+    if (userError) {
+      console.log('Properties POST: User error:', userError)
+      return NextResponse.json(
+        { error: 'Unauthorized - User authentication failed', details: userError.message },
+        { status: 401 }
+      )
+    }
+
+    if (!user) {
+      console.log('Properties POST: No user found')
+      return NextResponse.json(
+        { error: 'Unauthorized - No user data' },
+        { status: 401 }
+      )
+    }
+
+    console.log('Properties POST: User authenticated successfully:', user.id)
+
+    // Get admin record for the current user
+    console.log('Properties POST: Looking up admin record for user:', user.id)
+    const { data: adminRecord, error: adminError } = await supabaseWithToken
+      .from('admins')
+      .select('id, user_id') // Need both id and user_id
+      .eq('user_id', user.id)
+      .single()
+
+    if (adminError) {
+      console.log('Properties POST: Admin lookup error:', adminError)
+      return NextResponse.json(
+        { error: 'Admin record not found', details: adminError.message },
+        { status: 404 }
+      )
+    }
+
+    if (!adminRecord) {
+      console.log('Properties POST: No admin record found for user:', user.id)
+      return NextResponse.json(
+        { error: 'Admin record not found - no data returned' },
+        { status: 404 }
+      )
+    }
+
+    console.log('Properties POST: Admin record found - ID:', adminRecord.id, 'User ID:', adminRecord.user_id)
 
     // Validate required fields
     if (!name || !street_address || !city) {
@@ -64,30 +205,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TEMPORARY: Get admin record with RLS disabled (service role)
-    // Since this is a server-side API and RLS is enabled, we need to bypass it
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('admins')
-      .select('id, user_id')
-      .limit(1)
-      .single()
-
-    if (adminError || !admin) {
-      console.error('Admin lookup error:', adminError)
-      return NextResponse.json(
-        { error: 'No admin record found. Please sign in first.' },
-        { status: 400 }
-      )
-    }
-
-    // Create property with the existing admin (now using UUID user_id)
-    const { data: property, error } = await supabase
+    // Create property; properties.admin_id holds user.id UUID per current DB
+    console.log('Properties POST: Creating property for user UUID:', user.id)
+    const { data: property, error } = await supabaseWithToken
       .from('properties')
       .insert([
         {
@@ -95,20 +215,21 @@ export async function POST(request: NextRequest) {
           street_address,
           city,
           description,
-          admin_id: admin.user_id, // Use UUID user_id instead of integer id
+          admin_id: user.id,
         },
       ])
       .select()
       .single()
 
     if (error) {
-      console.error('Property creation error:', error)
+      console.error('Properties POST: Property creation error:', error)
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message, details: error.details },
         { status: 400 }
       )
     }
 
+    console.log('Properties POST: Property created successfully:', property?.id)
     return NextResponse.json({
       data: property,
       message: 'Property created successfully',

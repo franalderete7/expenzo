@@ -143,6 +143,12 @@ export function ContractDetailModal({ open, onOpenChange, contractId }: Contract
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[90vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Detalles del Contrato</DialogTitle>
+            <DialogDescription className="sr-only">
+              Información detallada del contrato de alquiler
+            </DialogDescription>
+          </DialogHeader>
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>

@@ -85,6 +85,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
   })
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [phoneLocal, setPhoneLocal] = useState<string>('')
 
   useImperativeHandle(ref, () => ({
     openCreateDialog: () => setCreateDialogOpen(true)
@@ -185,11 +186,11 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
       }
     }
 
-    // Phone validation (Argentine format: +54 followed by numbers)
-    if (formData.phone && formData.phone.trim()) {
-      const phoneRegex = /^\+54\d{10}$/
-      if (!phoneRegex.test(formData.phone)) {
-        errors.phone = 'El teléfono debe tener el formato +543871234567'
+    // Phone validation (local digits only, 8-12, will be prefixed with +54)
+    const phoneDigits = (phoneLocal || '').replace(/\D/g, '')
+    if (phoneLocal && phoneDigits.length > 0) {
+      if (phoneDigits.length < 8 || phoneDigits.length > 12) {
+        errors.phone = 'El teléfono debe tener entre 8 y 12 dígitos'
       }
     }
 
@@ -212,6 +213,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
       role: 'tenant'
     })
     setFormErrors({})
+    setPhoneLocal('')
   }
 
   const handleCreateResident = async () => {
@@ -225,6 +227,9 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
     }
 
     try {
+      // Prepare phone
+      const localDigits = (phoneLocal || '').replace(/\D/g, '')
+      const phone = localDigits ? `+54${localDigits}` : null
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession()
 
@@ -244,7 +249,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
           unit_id: formData.unit_id,
           name: formData.name.trim(),
           email: formData.email?.trim() || null,
-          phone: formData.phone?.trim() || null,
+          phone,
           role: formData.role
         })
       })
@@ -275,6 +280,10 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
       phone: resident.phone || '',
       role: resident.role
     })
+    // Derive local phone part (strip +54 prefix and non-digits)
+    const digits = (resident.phone || '').replace(/\D/g, '')
+    const local = digits.startsWith('54') ? digits.slice(2) : digits
+    setPhoneLocal(local)
     setFormErrors({})
     setEditDialogOpen(true)
   }
@@ -287,6 +296,8 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
     }
 
     try {
+      const localDigits = (phoneLocal || '').replace(/\D/g, '')
+      const phone = localDigits ? `+54${localDigits}` : null
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession()
 
@@ -306,7 +317,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
           unit_id: formData.unit_id,
           name: formData.name.trim(),
           email: formData.email?.trim() || null,
-          phone: formData.phone?.trim() || null,
+          phone,
           role: formData.role
         })
       })
@@ -462,13 +473,18 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">Teléfono</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="col-span-3"
-                  placeholder="+543871234567"
-                />
+                <div className="col-span-3 flex">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-input bg-muted text-sm text-foreground select-none">+54</span>
+                  <Input
+                    id="phone"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={phoneLocal}
+                    onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, ''))}
+                    className="rounded-l-none"
+                    placeholder="3875525123"
+                  />
+                </div>
               </div>
               {formErrors.phone && (
                 <div className="col-start-2 col-span-3 text-sm text-destructive">
@@ -729,12 +745,18 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-phone" className="text-right">Teléfono</Label>
-              <Input
-                id="edit-phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="col-span-3"
-              />
+              <div className="col-span-3 flex">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-input bg-muted text-sm text-foreground select-none">+54</span>
+                <Input
+                  id="edit-phone"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={phoneLocal}
+                  onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, ''))}
+                  className="rounded-l-none"
+                  placeholder="3875525123"
+                />
+              </div>
             </div>
             {formErrors.phone && (
               <div className="col-start-2 col-span-3 text-sm text-destructive">

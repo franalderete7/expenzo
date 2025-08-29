@@ -29,6 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Plus, Edit, Trash2, Building, MapPin } from 'lucide-react'
 import { Property, PropertyFormData } from '@/types/database'
+import { supabase } from '@/lib/supabase'
 
 interface PropertiesManagerProps {
   onPropertySelect?: (propertyId: number) => void
@@ -50,15 +51,39 @@ export function PropertiesManager({ onPropertySelect }: PropertiesManagerProps =
   const fetchProperties = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/properties')
-      if (!response.ok) {
-        throw new Error('Failed to fetch properties')
+      console.log('PropertiesManager: Attempting to fetch properties...')
+
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.log('PropertiesManager: Session error:', sessionError)
+        throw new Error('Authentication error')
       }
+
+      if (!session) {
+        console.log('PropertiesManager: No active session')
+        throw new Error('Not authenticated')
+      }
+
+      console.log('PropertiesManager: Session found, making API call...')
+      const response = await fetch('/api/properties', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.log('PropertiesManager: API error response:', errorData)
+        throw new Error(errorData.error || 'Failed to fetch properties')
+      }
+
       const result = await response.json()
-      console.log('API Response:', result) // Debug log
+      console.log('PropertiesManager: API Response:', result)
       setProperties(result.data || [])
     } catch (err) {
-      console.error('Fetch error:', err) // Debug log
+      console.error('PropertiesManager: Fetch error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
@@ -73,13 +98,30 @@ export function PropertiesManager({ onPropertySelect }: PropertiesManagerProps =
     e.preventDefault()
 
     try {
+      console.log('PropertiesManager: Submitting property form...')
+
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.log('PropertiesManager: Submit session error:', sessionError)
+        throw new Error('Authentication error')
+      }
+
+      if (!session) {
+        console.log('PropertiesManager: Submit no active session')
+        throw new Error('Not authenticated')
+      }
+
       const url = editingProperty ? `/api/properties/${editingProperty.id}` : '/api/properties'
       const method = editingProperty ? 'PUT' : 'POST'
 
+      console.log('PropertiesManager: Making API call to:', url, 'method:', method)
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(formData),
       })
@@ -122,17 +164,36 @@ export function PropertiesManager({ onPropertySelect }: PropertiesManagerProps =
 
   const handleDelete = async (propertyId: number) => {
     try {
+      console.log('PropertiesManager: Deleting property:', propertyId)
+
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.log('PropertiesManager: Delete session error:', sessionError)
+        throw new Error('Authentication error')
+      }
+
+      if (!session) {
+        console.log('PropertiesManager: Delete no active session')
+        throw new Error('Not authenticated')
+      }
+
       const response = await fetch(`/api/properties/${propertyId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
       })
 
       if (!response.ok) {
         const errorData = await response.json()
+        console.log('PropertiesManager: Delete API error:', errorData)
         throw new Error(errorData.error || 'Failed to delete property')
       }
 
       const result = await response.json()
-      console.log(result.message)
+      console.log('PropertiesManager: Delete successful:', result.message)
 
       // Refresh properties list
       fetchProperties()

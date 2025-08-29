@@ -174,6 +174,7 @@ export async function PUT(
         amount: parseFloat(amount),
         date,
         description: description || null,
+        // admin_id and property_id remain unchanged on update
         updated_at: new Date().toISOString()
       })
       .eq('id', expenseId)

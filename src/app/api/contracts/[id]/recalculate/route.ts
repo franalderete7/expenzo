@@ -53,7 +53,7 @@ export async function POST(
     // Admin
     const { data: adminRecord, error: adminError } = await supabaseWithToken
       .from('admins')
-      .select('user_id')
+      .select('id, user_id')
       .eq('user_id', user.id)
       .single()
 
@@ -68,12 +68,34 @@ export async function POST(
         id, unit_id, tenant_id, start_date, end_date, initial_rent_amount,
         rent_increase_frequency, currency, icl_index_type,
         unit:units!inner(
+          property_id,
           property:properties!inner(admin_id)
         )
       `)
       .eq('id', id)
       .eq('unit.property.admin_id', adminRecord.user_id)
       .single()
+    // Safely extract property_id from unit join (can be object or array)
+    function extractPropertyId(u: unknown): number | null {
+      if (Array.isArray(u)) {
+        const first = u[0] as unknown
+        if (first && typeof first === 'object' && 'property_id' in first) {
+          const pid = (first as { property_id: number }).property_id
+          return Number(pid)
+        }
+        return null
+      }
+      if (u && typeof u === 'object' && 'property_id' in u) {
+        const pid = (u as { property_id: number }).property_id
+        return Number(pid)
+      }
+      return null
+    }
+    const propertyIdFromUnit = extractPropertyId((contract as unknown as { unit: unknown }).unit)
+    if (!propertyIdFromUnit) {
+      return NextResponse.json({ error: 'No se pudo determinar property_id del contrato' }, { status: 400 })
+    }
+
 
     if (contractError || !contract) {
       return NextResponse.json({ error: 'Contract not found or access denied' }, { status: 404 })
@@ -125,6 +147,8 @@ export async function POST(
     }
 
     type RentInsert = {
+      admin_id: number
+      property_id: number
       contract_id: number
       period_month: number
       period_year: number
@@ -183,6 +207,8 @@ export async function POST(
 
       const existing = existingMap.get(key)
       const row: RentInsert = {
+        admin_id: Number(adminRecord.id),
+        property_id: propertyIdFromUnit,
         contract_id: contract.id,
         period_month: m,
         period_year: y,

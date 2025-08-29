@@ -5,7 +5,7 @@ export interface Property {
   street_address: string
   city: string
   description?: string
-  admin_id: string  // UUID string that points to auth.users.id
+  admin_id: string  // UUID that points to admins.user_id (per current DB)
   created_at: string
   updated_at: string
 }

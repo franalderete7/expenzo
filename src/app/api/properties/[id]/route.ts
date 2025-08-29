@@ -18,7 +18,21 @@ export async function GET(
       )
     }
 
-    // Get property
+    // Get admin record for the current user
+    const { data: adminRecord, error: adminError } = await supabase
+      .from('admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (adminError || !adminRecord) {
+      return NextResponse.json(
+        { error: 'Admin record not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get property (properties.admin_id holds user.id UUID)
     const { data: property, error } = await supabase
       .from('properties')
       .select('*')

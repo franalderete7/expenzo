@@ -18,7 +18,7 @@ export async function GET(
       )
     }
 
-    // Verify property belongs to user
+    // Verify property belongs to user (properties.admin_id is UUID user.id)
     const { error: propertyError } = await supabase
       .from('properties')
       .select('id')
@@ -83,7 +83,7 @@ export async function POST(
       )
     }
 
-    // Verify property belongs to user
+    // Verify property belongs to user (properties.admin_id is UUID user.id)
     const { data: property, error: propertyError } = await supabase
       .from('properties')
       .select('id')
@@ -109,10 +109,22 @@ export async function POST(
       electricity_account
     } = body
 
+    // Lookup admin id (INTEGER)
+    const { data: adminRecord, error: adminError } = await supabase
+      .from('admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (adminError || !adminRecord) {
+      return NextResponse.json({ error: 'Admin record not found' }, { status: 404 })
+    }
+
     // Create the unit
     const { data: unit, error } = await supabase
       .from('units')
       .insert({
+        admin_id: adminRecord.id,
         property_id: propertyId,
         unit_number,
         expense_percentage,

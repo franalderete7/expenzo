@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase'
 interface SidebarSection {
   title: string
   icon: React.ComponentType<{ className?: string }>
+  count?: number
   items: Array<{
     id: number | string
     name: string
@@ -66,99 +67,39 @@ export function DynamicSidebar({
 
     setLoading(true)
     try {
-      const [unitsRes, residentsRes, expensesRes, contractsRes] = await Promise.all([
-        supabase
-          .from('units')
-          .select('*, residents(name, email)')
-          .eq('property_id', selectedPropertyId)
-          .order('unit_number'),
-        supabase
-          .from('residents')
-          .select('*, units(unit_number)')
-          .eq('property_id', selectedPropertyId)
-          .order('name'),
-        supabase
-          .from('expenses')
-          .select('*')
-          .eq('property_id', selectedPropertyId)
-          .order('date', { ascending: false })
-          .limit(10),
-        supabase
-          .from('contracts')
-          .select(`
-            *,
-            unit:units(unit_number),
-            tenant:residents(name)
-          `)
-          .eq('unit.property_id', selectedPropertyId)
-          .order('created_at', { ascending: false })
-          .limit(10)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setSections([])
+        return
+      }
+
+      const headers = { Authorization: `Bearer ${session.access_token}` }
+      const now = new Date()
+      const month = now.getMonth() + 1
+      const year = now.getFullYear()
+
+      const [unitsApi, residentsApi, contractsApi, expensesApi, liquidacionesApi] = await Promise.all([
+        fetch(`/api/units?property_id=${selectedPropertyId}&limit=1`, { headers }),
+        fetch(`/api/residents?property_id=${selectedPropertyId}&limit=1`, { headers }),
+        fetch(`/api/contracts?property_id=${selectedPropertyId}&limit=1`, { headers }),
+        fetch(`/api/expenses?property_id=${selectedPropertyId}&month=${month}&year=${year}&limit=1`, { headers }),
+        fetch(`/api/liquidaciones?property_id=${selectedPropertyId}&month=${month}&year=${year}`, { headers }),
+      ])
+
+      const [unitsJson, residentsJson, contractsJson, expensesJson, liquidacionesJson] = await Promise.all([
+        unitsApi.ok ? unitsApi.json() : Promise.resolve({ pagination: { total: 0 } }),
+        residentsApi.ok ? residentsApi.json() : Promise.resolve({ pagination: { total: 0 } }),
+        contractsApi.ok ? contractsApi.json() : Promise.resolve({ pagination: { total: 0 } }),
+        expensesApi.ok ? expensesApi.json() : Promise.resolve({ pagination: { total: 0 } }),
+        liquidacionesApi.ok ? liquidacionesApi.json() : Promise.resolve({ data: [] }),
       ])
 
       const newSections: SidebarSection[] = [
-        {
-          title: 'Unidades',
-          icon: Home,
-          items: (unitsRes.data || []).map(unit => ({
-            id: unit.id,
-            name: unit.unit_number,
-            subtitle: unit.residents?.length ? `${unit.residents.length} residente(s)` : 'Vacante',
-            status: unit.status,
-            type: 'unit'
-          })),
-        },
-        {
-          title: 'Residentes',
-          icon: Users,
-          items: (residentsRes.data || []).map(resident => ({
-            id: resident.id,
-            name: resident.name,
-            subtitle: `Unidad ${resident.units?.unit_number || 'Desconocida'}`,
-            status: resident.role,
-            type: 'resident'
-          })),
-        },
-        {
-          title: 'Gastos',
-          icon: DollarSign,
-          items: (expensesRes.data || []).map(expense => ({
-            id: expense.id,
-            name: expense.expense_type,
-            subtitle: `$${expense.amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`,
-            status: 'expense',
-            type: 'expense'
-          })),
-        },
-        {
-          title: 'Contratos',
-          icon: FileText,
-          items: (contractsRes.data && contractsRes.data.length > 0)
-            ? contractsRes.data.map(contract => ({
-                id: contract.id,
-                name: `${contract.tenant?.name || 'Sin Inquilino'} - Unidad ${contract.unit?.unit_number || 'N/A'}`,
-                subtitle: `$${contract.initial_rent_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`,
-                status: contract.status,
-                type: 'contract'
-              }))
-            : [{
-                id: 'no-contracts',
-                name: 'No hay contratos',
-                subtitle: 'Crea tu primer contrato',
-                status: 'none',
-                type: 'contract'
-              }],
-        },
-        {
-          title: 'Liquidaciones',
-          icon: Calculator,
-          items: [{
-            id: 'liquidaciones-overview',
-            name: 'Vista General',
-            subtitle: 'Calcula y administra liquidaciones',
-            status: 'active',
-            type: 'liquidaciones'
-          }],
-        }
+        { title: 'Unidades', icon: Home, count: unitsJson?.pagination?.total || 0, items: [] },
+        { title: 'Residentes', icon: Users, count: residentsJson?.pagination?.total || 0, items: [] },
+        { title: 'Gastos', icon: DollarSign, count: expensesJson?.pagination?.total || 0, items: [] },
+        { title: 'Contratos', icon: FileText, count: contractsJson?.pagination?.total || 0, items: [] },
+        { title: 'Liquidaciones', icon: Calculator, count: (Array.isArray(liquidacionesJson?.data) ? liquidacionesJson.data.length : 0), items: [] },
       ]
 
       setSections(newSections)
@@ -267,7 +208,9 @@ export function DynamicSidebar({
                     <section.icon className="h-4 w-4" />
                     <span className="font-medium">{section.title}</span>
                     <Badge variant="secondary" className="ml-auto">
-                      {section.items.length}
+                      {('count' in section && typeof (section as { count?: number }).count === 'number')
+                        ? (section as { count?: number }).count as number
+                        : section.items.length}
                     </Badge>
                   </div>
                 </div>

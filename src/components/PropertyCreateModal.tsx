@@ -59,6 +59,18 @@ export function PropertyCreateModal({
         return
       }
 
+      // Get admin record for the current user
+      const { data: adminRecord, error: adminError } = await supabase
+        .from('admins')
+        .select('id, user_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (adminError || !adminRecord) {
+        setError('No se pudo encontrar el registro de administrador')
+        return
+      }
+
       // Create property
       const { data: property, error: createError } = await supabase
         .from('properties')
@@ -67,7 +79,7 @@ export function PropertyCreateModal({
           street_address: formData.street_address.trim(),
           city: formData.city.trim(),
           description: formData.description.trim() || null,
-          admin_id: user.id
+          admin_id: adminRecord.id // Use admin.id (INTEGER) instead of user.id (UUID)
         })
         .select()
         .single()

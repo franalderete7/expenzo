@@ -143,10 +143,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Lookup admin (INTEGER id) to store on units.admin_id
+    const { data: adminRecord, error: adminError } = await supabaseWithToken
+      .from('admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (adminError || !adminRecord) {
+      return NextResponse.json({ error: 'Admin record not found' }, { status: 404 })
+    }
+
     // Create the unit
     const { data: unit, error } = await supabaseWithToken
       .from('units')
       .insert({
+        admin_id: adminRecord.id,
         property_id,
         unit_number,
         expense_percentage,

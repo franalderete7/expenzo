@@ -314,6 +314,7 @@ export async function POST(request: NextRequest) {
     const { data: expense, error } = await supabaseWithToken
       .from('expenses')
       .insert({
+        admin_id: adminRecord.id, // INTEGER admins.id
         property_id,
         expense_type,
         amount: parseFloat(amount),

@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       .from('properties')
       .select('id')
       .eq('id', propertyId)
-      .eq('admin_id', adminRecord.user_id)
+      .eq('admin_id', user.id)
       .single()
 
     if (propertyError || !property) {
@@ -63,17 +63,18 @@ export async function GET(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Get contracts for units in this property
+    // Get contracts for units in this property and scope by admin via join
     const { data: contracts, error, count } = await supabaseWithToken
       .from('contracts')
       .select(`
         *,
-        unit:units (
+        unit:units!inner (
           id,
           unit_number,
-          property:properties (
+          property:properties!inner (
             id,
-            name
+            name,
+            admin_id
           )
         ),
         tenant:residents (
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest) {
         )
       `, { count: 'exact' })
       .eq('unit.property_id', propertyId)
+      .eq('unit.property.admin_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -168,7 +170,7 @@ export async function POST(request: NextRequest) {
       .from('units')
       .select('id, property_id, property:properties!inner(admin_id)')
       .eq('id', unit_id)
-      .eq('property.admin_id', adminRecord.user_id)
+      .eq('property.admin_id', user.id)
       .single()
 
     if (unitError || !unit) {
@@ -190,6 +192,8 @@ export async function POST(request: NextRequest) {
     const { data: contract, error } = await supabaseWithToken
       .from('contracts')
       .insert({
+        admin_id: (adminRecord.id as number),
+        property_id: unit.property_id,
         unit_id,
         tenant_id,
         start_date,

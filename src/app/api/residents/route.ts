@@ -63,7 +63,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get residents with pagination - filter by units that belong to this property
+    // Get admin record for stronger scoping
+    const { data: adminRecord, error: adminError } = await supabaseWithToken
+      .from('admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (adminError || !adminRecord) {
+      return NextResponse.json({ error: 'Admin record not found' }, { status: 404 })
+    }
+
+    // Get residents with pagination - strictly scope by property_id and admin_id
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const offset = (page - 1) * limit
@@ -78,7 +89,8 @@ export async function GET(request: NextRequest) {
           property_id
         )
       `, { count: 'exact' })
-      .eq('units.property_id', propertyId)
+      .eq('property_id', propertyId)
+      .eq('admin_id', adminRecord.id)
       .range(offset, offset + limit - 1)
       .order('name')
 
@@ -227,7 +239,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create the resident
+    // Create the resident (admin_id already set here)
     const { data: resident, error } = await supabaseWithToken
       .from('residents')
       .insert({
