@@ -19,7 +19,7 @@ export async function GET(
     }
 
     // Verify property belongs to user
-    const { data: property, error: propertyError } = await supabase
+    const { error: propertyError } = await supabase
       .from('properties')
       .select('id')
       .eq('id', id)
@@ -99,7 +99,15 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { unit_number, expense_percentage } = body
+    const {
+      unit_number,
+      expense_percentage,
+      nis_number,
+      catastro,
+      water_account,
+      gas_account,
+      electricity_account
+    } = body
 
     // Create the unit
     const { data: unit, error } = await supabase
@@ -108,7 +116,12 @@ export async function POST(
         property_id: propertyId,
         unit_number,
         expense_percentage,
-        status: 'vacant'
+        status: 'vacant',
+        nis_number: nis_number || null,
+        catastro: catastro || null,
+        water_account: water_account || null,
+        gas_account: gas_account || null,
+        electricity_account: electricity_account || null
       })
       .select(`
         *,

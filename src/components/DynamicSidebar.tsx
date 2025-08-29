@@ -7,6 +7,7 @@ import {
   Users,
   DollarSign,
   FileText,
+  Calculator,
   Loader2,
   Menu,
   X
@@ -35,8 +36,8 @@ interface DynamicSidebarProps {
   onCreateResident?: () => void
   onCreateExpense?: () => void
   onCreateContract?: () => void
-  onTabChange?: (tab: 'units' | 'residents' | 'expenses' | 'contracts') => void
-  activeTab?: 'units' | 'residents' | 'expenses' | 'contracts'
+  onTabChange?: (tab: 'units' | 'residents' | 'expenses' | 'contracts' | 'liquidaciones') => void
+  activeTab?: 'units' | 'residents' | 'expenses' | 'contracts' | 'liquidaciones'
 }
 
 export function DynamicSidebar({
@@ -146,6 +147,17 @@ export function DynamicSidebar({
                 status: 'none',
                 type: 'contract'
               }],
+        },
+        {
+          title: 'Liquidaciones',
+          icon: Calculator,
+          items: [{
+            id: 'liquidaciones-overview',
+            name: 'Vista General',
+            subtitle: 'Calcula y administra liquidaciones',
+            status: 'active',
+            type: 'liquidaciones'
+          }],
         }
       ]
 
@@ -233,7 +245,8 @@ export function DynamicSidebar({
                       (section.title === 'Unidades' && activeTab === 'units') ||
                       (section.title === 'Residentes' && activeTab === 'residents') ||
                       (section.title === 'Gastos' && activeTab === 'expenses') ||
-                      (section.title === 'Contratos' && activeTab === 'contracts')
+                      (section.title === 'Contratos' && activeTab === 'contracts') ||
+                      (section.title === 'Liquidaciones' && activeTab === 'liquidaciones')
                         ? 'bg-muted font-medium'
                         : ''
                     }`}
@@ -246,6 +259,8 @@ export function DynamicSidebar({
                         onTabChange('expenses')
                       } else if (section.title === 'Contratos' && onTabChange) {
                         onTabChange('contracts')
+                      } else if (section.title === 'Liquidaciones' && onTabChange) {
+                        onTabChange('liquidaciones')
                       }
                     }}
                   >
@@ -271,7 +286,8 @@ export function DynamicSidebar({
                 (section.title === 'Unidades' && activeTab === 'units') ||
                 (section.title === 'Residentes' && activeTab === 'residents') ||
                 (section.title === 'Gastos' && activeTab === 'expenses') ||
-                (section.title === 'Contratos' && activeTab === 'contracts')
+                (section.title === 'Contratos' && activeTab === 'contracts') ||
+                (section.title === 'Liquidaciones' && activeTab === 'liquidaciones')
                   ? 'bg-muted'
                   : ''
               }`}
@@ -285,6 +301,8 @@ export function DynamicSidebar({
                   onTabChange('expenses')
                 } else if (section.title === 'Contratos' && onTabChange) {
                   onTabChange('contracts')
+                } else if (section.title === 'Liquidaciones' && onTabChange) {
+                  onTabChange('liquidaciones')
                 }
               }}
             >

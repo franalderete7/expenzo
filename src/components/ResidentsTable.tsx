@@ -140,14 +140,27 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
     if (!selectedProperty) return
 
     try {
+      // Fetch units with their residents to filter out occupied ones
       const { data, error } = await supabase
         .from('units')
-        .select('*')
+        .select(`
+          *,
+          residents (
+            id,
+            name
+          )
+        `)
         .eq('property_id', selectedProperty.id)
         .order('unit_number')
 
       if (error) throw error
-      setUnits(data || [])
+
+      // Filter to only show units without residents (available units)
+      const availableUnits = (data || []).filter(unit =>
+        !unit.residents || unit.residents.length === 0
+      )
+
+      setUnits(availableUnits)
     } catch (error) {
       console.error('Error fetching units:', error)
       toast.error('Error loading units')
@@ -241,7 +254,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
         throw new Error(errorData.error || 'Error creating resident')
       }
 
-      const data = await response.json()
+      await response.json()
       toast.success('Residente creado exitosamente')
       setCreateDialogOpen(false)
       resetForm()
@@ -303,7 +316,7 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
         throw new Error(errorData.error || 'Error updating resident')
       }
 
-      const data = await response.json()
+      await response.json()
       toast.success('Residente actualizado exitosamente')
       setEditDialogOpen(false)
       setEditingResident(null)

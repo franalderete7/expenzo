@@ -41,11 +41,13 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign, Filter } from 'lucide-react'
+import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign, Filter, Download, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useProperty } from '@/contexts/PropertyContext'
 import { Expense, ExpenseFormData } from '@/types/entities'
+import * as XLSX from 'xlsx'
+import Papa from 'papaparse'
 
 interface ExpensesTableRef {
   openCreateDialog: () => void
@@ -349,6 +351,88 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i)
 
+  // Export functions
+  const getMonthName = (monthNumber: string) => {
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ]
+    return months[parseInt(monthNumber) - 1] || monthNumber
+  }
+
+  const prepareExportData = () => {
+    const exportData = sortedExpenses.map(expense => ({
+      'Tipo': expense.expense_type,
+      'Monto': expense.amount,
+      'Fecha': new Date(expense.date).toLocaleDateString('es-ES'),
+      'Descripción': expense.description || ''
+    }))
+
+    // Add total row
+    const totalAmount = sortedExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+    exportData.push({
+      'Tipo': 'TOTAL',
+      'Monto': totalAmount,
+      'Fecha': '',
+      'Descripción': `Total de ${sortedExpenses.length} gastos`
+    })
+
+    return exportData
+  }
+
+  const exportToCSV = () => {
+    try {
+      const exportData = prepareExportData()
+      const csvContent = Papa.unparse(exportData)
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `Expensas_${filterYear}_${getMonthName(filterMonth)}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success('Archivo CSV exportado exitosamente')
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      toast.error('Error al exportar CSV')
+    }
+  }
+
+  const exportToExcel = () => {
+    try {
+      const exportData = prepareExportData()
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(exportData)
+
+      // Auto-size columns
+      const colWidths = [
+        { wch: 20 }, // Tipo
+        { wch: 15 }, // Monto
+        { wch: 12 }, // Fecha
+        { wch: 30 }  // Descripción
+      ]
+      ws['!cols'] = colWidths
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Expensas')
+
+      // Save file
+      XLSX.writeFile(wb, `Expensas_${filterYear}_${getMonthName(filterMonth)}.xlsx`)
+
+      toast.success('Archivo Excel exportado exitosamente')
+    } catch (error) {
+      console.error('Error exporting Excel:', error)
+      toast.error('Error al exportar Excel')
+    }
+  }
+
 
 
   if (!selectedProperty) {
@@ -475,6 +559,30 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
           <Button variant="outline" onClick={clearFilters}>
             Restablecer
           </Button>
+
+          {/* Export Buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToCSV}
+              disabled={expenses.length === 0}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToExcel}
+              disabled={expenses.length === 0}
+              className="flex items-center gap-2"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </Button>
+          </div>
         </div>
 
         {/* Monthly Total Display - only when filtered by month and year */}

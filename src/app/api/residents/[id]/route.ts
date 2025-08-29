@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 
 // GET a specific resident by ID
@@ -227,6 +226,31 @@ export async function PUT(
           { status: 400 }
         )
       }
+
+      // Check if unit already has a different resident (only if it's not the same resident)
+      if (unit_id !== existingResident.unit_id) {
+        const { data: existingResidentInUnit, error: residentCheckError } = await supabaseWithToken
+          .from('residents')
+          .select('id, name')
+          .eq('unit_id', unit_id)
+          .neq('id', residentId) // Exclude current resident
+          .single()
+
+        if (existingResidentInUnit) {
+          return NextResponse.json(
+            { error: `La unidad ya tiene un residente asignado (${existingResidentInUnit.name}). Una unidad solo puede tener un residente.` },
+            { status: 409 }
+          )
+        }
+
+        if (residentCheckError && residentCheckError.code !== 'PGRST116') {
+          console.error('Error checking for existing resident in unit:', residentCheckError)
+          return NextResponse.json(
+            { error: 'Error verificando residentes existentes en la unidad' },
+            { status: 500 }
+          )
+        }
+      }
     }
 
     // Update the resident
@@ -258,6 +282,34 @@ export async function PUT(
         { error: 'Resident not found or could not be updated' },
         { status: 404 }
       )
+    }
+
+    // Handle unit status updates
+    const oldUnitId = existingResident.unit_id
+    const newUnitId = unit_id
+
+    // If resident had a unit before and now has a different unit or no unit, set old unit to vacant
+    if (oldUnitId && oldUnitId !== newUnitId) {
+      const { error: oldUnitError } = await supabaseWithToken
+        .from('units')
+        .update({ status: 'vacant' })
+        .eq('id', oldUnitId)
+
+      if (oldUnitError) {
+        console.error('Error updating old unit status to vacant:', oldUnitError)
+      }
+    }
+
+    // If resident now has a unit (that they didn't have before), set new unit to occupied
+    if (newUnitId && newUnitId !== oldUnitId) {
+      const { error: newUnitError } = await supabaseWithToken
+        .from('units')
+        .update({ status: 'occupied' })
+        .eq('id', newUnitId)
+
+      if (newUnitError) {
+        console.error('Error updating new unit status to occupied:', newUnitError)
+      }
     }
 
     return NextResponse.json({
@@ -361,6 +413,19 @@ export async function DELETE(
       .eq('id', residentId)
 
     if (error) throw error
+
+    // If resident had a unit assigned, set it back to vacant
+    if (existingResident.unit_id) {
+      const { error: unitUpdateError } = await supabaseWithToken
+        .from('units')
+        .update({ status: 'vacant' })
+        .eq('id', existingResident.unit_id)
+
+      if (unitUpdateError) {
+        console.error('Error updating unit status to vacant after resident deletion:', unitUpdateError)
+        // Don't throw here, resident was deleted successfully
+      }
+    }
 
     return NextResponse.json({
       message: 'Resident deleted successfully'

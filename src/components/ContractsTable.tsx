@@ -45,6 +45,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useProperty } from '@/contexts/PropertyContext'
 import { Contract, ContractFormData } from '@/types/entities'
+import { ContractDetailModal } from './ContractDetailModal'
 
 interface ContractsTableRef {
   openCreateDialog: () => void
@@ -66,6 +67,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingContract, setEditingContract] = useState<Contract | null>(null)
+  const [contractDetailModalOpen, setContractDetailModalOpen] = useState(false)
+  const [selectedContractId, setSelectedContractId] = useState<number | null>(null)
 
   // Form data
   const [formData, setFormData] = useState<ContractFormData>({
@@ -77,7 +80,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     rent_increase_frequency: 'quarterly',
     status: 'active',
     currency: 'ARS',
-    rent_increase_index: 'ICL'
+    icl_index_type: 'ICL'
   })
 
   useImperativeHandle(ref, () => ({
@@ -150,7 +153,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       fetchContracts()
       fetchUnitsAndResidents()
     }
-  }, [fetchContracts, fetchUnitsAndResidents])
+  }, [selectedProperty])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -194,7 +197,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       rent_increase_frequency: 'quarterly',
       status: 'active',
       currency: 'ARS',
-      rent_increase_index: 'ICL'
+      icl_index_type: 'ICL'
     })
   }
 
@@ -249,7 +252,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           rent_increase_frequency: formData.rent_increase_frequency,
           status: formData.status,
           currency: formData.currency,
-          rent_increase_index: formData.rent_increase_index
+          icl_index_type: formData.icl_index_type
         })
       })
 
@@ -281,7 +284,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       rent_increase_frequency: contract.rent_increase_frequency,
       status: contract.status,
       currency: contract.currency || 'ARS',
-      rent_increase_index: contract.rent_increase_index || 'ICL'
+      icl_index_type: contract.icl_index_type || 'ICL'
     })
     setEditDialogOpen(true)
   }
@@ -333,7 +336,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           rent_increase_frequency: formData.rent_increase_frequency,
           status: formData.status,
           currency: formData.currency,
-          rent_increase_index: formData.rent_increase_index
+          icl_index_type: formData.icl_index_type
         })
       })
 
@@ -384,6 +387,11 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleViewContractDetail = (contractId: number) => {
+    setSelectedContractId(contractId)
+    setContractDetailModalOpen(true)
   }
 
   const getStatusBadgeVariant = (status: string) => {
@@ -583,10 +591,10 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="rent_increase_index" className="text-right">Índice Aumento</Label>
+                <Label htmlFor="icl_index_type" className="text-right">Índice</Label>
                 <Select
-                  value={formData.rent_increase_index}
-                  onValueChange={(value) => setFormData({ ...formData, rent_increase_index: value })}
+                  value={formData.icl_index_type}
+                  onValueChange={(value) => setFormData({ ...formData, icl_index_type: value })}
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Seleccionar índice" />
@@ -673,12 +681,12 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
               </TableRow>
             ) : (
               sortedContracts.map((contract) => (
-                <TableRow key={contract.id}>
+                <TableRow key={contract.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleViewContractDetail(contract.id)}>
                   <TableCell className="font-medium">
-                    {new Date(contract.start_date).toLocaleDateString('es-ES')}
+                    {contract.start_date}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(contract.end_date).toLocaleDateString('es-ES')}
+                    {contract.end_date}
                   </TableCell>
                   <TableCell className="font-medium">
                     Unidad {contract.unit?.unit_number}
@@ -702,18 +710,18 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                       {getStatusLabel(contract.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEditContract(contract)}
+                        onClick={(e) => { e.stopPropagation(); handleEditContract(contract) }}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
@@ -884,10 +892,10 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit_rent_increase_index" className="text-right">Índice Aumento</Label>
+              <Label htmlFor="edit_icl_index_type" className="text-right">Índice</Label>
               <Select
-                value={formData.rent_increase_index}
-                onValueChange={(value) => setFormData({ ...formData, rent_increase_index: value })}
+                value={formData.icl_index_type}
+                onValueChange={(value) => setFormData({ ...formData, icl_index_type: value })}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Seleccionar índice" />
@@ -906,6 +914,13 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Contract Detail Modal */}
+      <ContractDetailModal
+        open={contractDetailModalOpen}
+        onOpenChange={setContractDetailModalOpen}
+        contractId={selectedContractId}
+      />
     </div>
   )
 })

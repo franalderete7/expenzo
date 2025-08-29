@@ -54,6 +54,11 @@ interface UnitFormData {
   unit_number: string
   status: 'occupied' | 'vacant'
   expense_percentage: number | undefined
+  nis_number?: string
+  catastro?: string
+  water_account?: string
+  gas_account?: string
+  electricity_account?: string
 }
 
 type SortField = 'unit_number' | 'status' | 'expense_percentage' | 'created_at'
@@ -76,7 +81,12 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
   const [formData, setFormData] = useState<UnitFormData>({
     unit_number: '',
     status: 'vacant',
-    expense_percentage: undefined
+    expense_percentage: undefined,
+    nis_number: '',
+    catastro: '',
+    water_account: '',
+    gas_account: '',
+    electricity_account: ''
   })
 
   useImperativeHandle(ref, () => ({
@@ -153,7 +163,12 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
     setFormData({
       unit_number: '',
       status: 'vacant',
-      expense_percentage: undefined
+      expense_percentage: undefined,
+      nis_number: '',
+      catastro: '',
+      water_account: '',
+      gas_account: '',
+      electricity_account: ''
     })
   }
 
@@ -190,7 +205,12 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
           property_id: selectedProperty.id,
           unit_number: formData.unit_number,
           status: formData.status,
-          expense_percentage: formData.expense_percentage
+          expense_percentage: formData.expense_percentage,
+          nis_number: formData.nis_number || null,
+          catastro: formData.catastro || null,
+          water_account: formData.water_account || null,
+          gas_account: formData.gas_account || null,
+          electricity_account: formData.electricity_account || null
         })
       })
 
@@ -199,7 +219,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
         throw new Error(errorData.error || 'Error creating unit')
       }
 
-      const data = await response.json()
+      await response.json()
 
       toast.success('Unit created successfully')
       setCreateDialogOpen(false)
@@ -216,7 +236,12 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
     setFormData({
       unit_number: unit.unit_number,
       status: unit.status,
-      expense_percentage: unit.expense_percentage || undefined
+      expense_percentage: unit.expense_percentage || undefined,
+      nis_number: unit.nis_number || '',
+      catastro: unit.catastro || '',
+      water_account: unit.water_account || '',
+      gas_account: unit.gas_account || '',
+      electricity_account: unit.electricity_account || ''
     })
     setEditDialogOpen(true)
   }
@@ -253,7 +278,12 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
         body: JSON.stringify({
           unit_number: formData.unit_number,
           status: formData.status,
-          expense_percentage: formData.expense_percentage
+          expense_percentage: formData.expense_percentage,
+          nis_number: formData.nis_number || null,
+          catastro: formData.catastro || null,
+          water_account: formData.water_account || null,
+          gas_account: formData.gas_account || null,
+          electricity_account: formData.electricity_account || null
         })
       })
 
@@ -262,7 +292,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
         throw new Error(errorData.error || 'Error updating unit')
       }
 
-      const data = await response.json()
+      await response.json()
 
       toast.success('Unit updated successfully')
       setEditDialogOpen(false)
@@ -414,6 +444,66 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
                   placeholder="Ej: 25.5"
                 />
               </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="nis_number" className="text-right">
+                  NIS
+                </Label>
+                <Input
+                  id="nis_number"
+                  value={formData.nis_number || ''}
+                  onChange={(e) => setFormData({ ...formData, nis_number: e.target.value })}
+                  className="col-span-3"
+                  placeholder="Número de identificación del servicio"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="catastro" className="text-right">
+                  Catastro
+                </Label>
+                <Input
+                  id="catastro"
+                  value={formData.catastro || ''}
+                  onChange={(e) => setFormData({ ...formData, catastro: e.target.value })}
+                  className="col-span-3"
+                  placeholder="Número catastral"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="water_account" className="text-right">
+                  Agua
+                </Label>
+                <Input
+                  id="water_account"
+                  value={formData.water_account || ''}
+                  onChange={(e) => setFormData({ ...formData, water_account: e.target.value })}
+                  className="col-span-3"
+                  placeholder="Cuenta de agua"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="gas_account" className="text-right">
+                  Gas
+                </Label>
+                <Input
+                  id="gas_account"
+                  value={formData.gas_account || ''}
+                  onChange={(e) => setFormData({ ...formData, gas_account: e.target.value })}
+                  className="col-span-3"
+                  placeholder="Cuenta de gas"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="electricity_account" className="text-right">
+                  Electricidad
+                </Label>
+                <Input
+                  id="electricity_account"
+                  value={formData.electricity_account || ''}
+                  onChange={(e) => setFormData({ ...formData, electricity_account: e.target.value })}
+                  className="col-span-3"
+                  placeholder="Cuenta de electricidad"
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
@@ -447,6 +537,8 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
                   {getSortIcon('status')}
                 </div>
               </TableHead>
+              <TableHead>Residente</TableHead>
+              <TableHead>Rol</TableHead>
               <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('expense_percentage')}
@@ -471,13 +563,13 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 </TableCell>
               </TableRow>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-destructive py-8">
+                <TableCell colSpan={7} className="text-center text-destructive py-8">
                   <p>Error: {error}</p>
                   <Button variant="outline" onClick={fetchUnits} className="mt-2">
                     Reintentar
@@ -486,7 +578,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
               </TableRow>
             ) : units.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <Home className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">No hay unidades registradas</p>
                   <Button onClick={() => setCreateDialogOpen(true)}>
@@ -496,56 +588,85 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
                 </TableCell>
               </TableRow>
             ) : (
-              sortedUnits.map((unit) => (
-                <TableRow key={unit.id}>
-                  <TableCell className="font-medium">{unit.unit_number}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(unit.status)}>
-                      {getStatusText(unit.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{unit.expense_percentage}%</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(unit.created_at).toLocaleDateString('es-ES')}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditUnit(unit)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Eliminar Unidad</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              ¿Estás seguro de que quieres eliminar la unidad {unit.unit_number}?
-                              Esta acción no se puede deshacer.
-                          </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteUnit(unit.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Eliminar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              sortedUnits.map((unit) => {
+                const resident = unit.residents?.[0]
+                const hasResident = resident && resident.name
+
+                return (
+                  <TableRow key={unit.id}>
+                    <TableCell className="font-medium">{unit.unit_number}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(unit.status)}>
+                        {getStatusText(unit.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {hasResident ? (
+                        <div className="space-y-1">
+                          <div className="font-medium">{resident.name}</div>
+                          {resident.email && (
+                            <div className="text-sm text-muted-foreground">{resident.email}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Sin residente</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {hasResident ? (
+                        <Badge
+                          variant={resident.role === 'owner' ? 'secondary' : 'default'}
+                          className="text-xs"
+                        >
+                          {resident.role === 'owner' ? 'Propietario' : 'Inquilino'}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{unit.expense_percentage}%</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(unit.created_at).toLocaleDateString('es-ES')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditUnit(unit)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Eliminar Unidad</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                ¿Estás seguro de que quieres eliminar la unidad {unit.unit_number}?
+                                Esta acción no se puede deshacer.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteUnit(unit.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
@@ -610,6 +731,66 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
                 }}
                 className="col-span-3"
                 placeholder="Ej: 25.5"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_nis_number" className="text-right">
+                NIS
+              </Label>
+              <Input
+                id="edit_nis_number"
+                value={formData.nis_number || ''}
+                onChange={(e) => setFormData({ ...formData, nis_number: e.target.value })}
+                className="col-span-3"
+                placeholder="Número de identificación del servicio"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_catastro" className="text-right">
+                Catastro
+              </Label>
+              <Input
+                id="edit_catastro"
+                value={formData.catastro || ''}
+                onChange={(e) => setFormData({ ...formData, catastro: e.target.value })}
+                className="col-span-3"
+                placeholder="Número catastral"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_water_account" className="text-right">
+                Agua
+              </Label>
+              <Input
+                id="edit_water_account"
+                value={formData.water_account || ''}
+                onChange={(e) => setFormData({ ...formData, water_account: e.target.value })}
+                className="col-span-3"
+                placeholder="Cuenta de agua"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_gas_account" className="text-right">
+                Gas
+              </Label>
+              <Input
+                id="edit_gas_account"
+                value={formData.gas_account || ''}
+                onChange={(e) => setFormData({ ...formData, gas_account: e.target.value })}
+                className="col-span-3"
+                placeholder="Cuenta de gas"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_electricity_account" className="text-right">
+                Electricidad
+              </Label>
+              <Input
+                id="edit_electricity_account"
+                value={formData.electricity_account || ''}
+                onChange={(e) => setFormData({ ...formData, electricity_account: e.target.value })}
+                className="col-span-3"
+                placeholder="Cuenta de electricidad"
               />
             </div>
           </div>

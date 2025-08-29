@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       rent_increase_frequency = 'quarterly',
       status = 'active',
       currency,
-      rent_increase_index
+      icl_index_type
     } = body
 
     if (!unit_id || !tenant_id || !start_date || !end_date || !initial_rent_amount) {
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
         rent_increase_frequency,
         status,
         currency: currency || null,
-        rent_increase_index: rent_increase_index || null
+        icl_index_type: icl_index_type || 'ICL'
       })
       .select(`
         *,

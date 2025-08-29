@@ -118,7 +118,7 @@ export async function PUT(
       rent_increase_frequency,
       status,
       currency,
-      rent_increase_index
+      icl_index_type
     } = body
 
     // Get user's admin record
@@ -161,7 +161,7 @@ export async function PUT(
       rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
       status: 'active' | 'expired' | 'renewed'
       currency: string | null
-      rent_increase_index: string | null
+      icl_index_type: string | null
       updated_at: string
     }> = {}
     if (unit_id !== undefined) updateData.unit_id = unit_id
@@ -172,7 +172,7 @@ export async function PUT(
     if (rent_increase_frequency !== undefined) updateData.rent_increase_frequency = rent_increase_frequency
     if (status !== undefined) updateData.status = status
     if (currency !== undefined) updateData.currency = currency || null
-    if (rent_increase_index !== undefined) updateData.rent_increase_index = rent_increase_index || null
+    if (icl_index_type !== undefined) updateData.icl_index_type = icl_index_type || 'ICL'
 
     updateData.updated_at = new Date().toISOString()
 

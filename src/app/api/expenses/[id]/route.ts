@@ -201,19 +201,19 @@ export async function PUT(
     // If the date changed, we need to handle both old and new periods
     if (oldPeriodYear !== newPeriodYear || oldPeriodMonth !== newPeriodMonth) {
       // Subtract from old period
-      const { data: oldSummary } = await supabaseWithToken
+      const adminClient = getAdminClient()
+      const { data: oldSummary } = await adminClient
         .from('monthly_expense_summaries')
         .select('id, total_expenses')
         .eq('property_id', existingExpense.property_id)
         .eq('period_year', oldPeriodYear)
         .eq('period_month', oldPeriodMonth)
-        .single()
+        .maybeSingle()
 
       if (oldSummary) {
         const newTotal = Math.max(0, oldSummary.total_expenses - existingExpense.amount)
 
         // Use admin client to bypass potential RLS issues
-        const adminClient = getAdminClient()
         const { error: oldUpdateError } = await adminClient
           .from('monthly_expense_summaries')
           .update({ total_expenses: newTotal })
@@ -299,35 +299,47 @@ export async function PUT(
       }
     } else {
       // Same period, update the difference directly
-      const { data: summary } = await supabaseWithToken
+      const adminClient = getAdminClient()
+      const { data: summary } = await adminClient
         .from('monthly_expense_summaries')
         .select('id, total_expenses')
         .eq('property_id', existingExpense.property_id)
         .eq('period_year', oldPeriodYear)
         .eq('period_month', oldPeriodMonth)
         .eq('admin_id', adminRecord.user_id)
-        .single()
+        .maybeSingle()
 
       if (summary) {
-        const amountDifference = parseFloat(amount) - existingExpense.amount
-        const newTotal = summary.total_expenses + amountDifference
+        console.log(`🔄 Recomputing total for summary ${summary.id} after expense update`)
 
-        // Use admin client to bypass potential RLS issues
+        // Recompute total from linked expenses to avoid drift
         const adminClient = getAdminClient()
-        const { error: updateError } = await adminClient
-          .from('monthly_expense_summaries')
-          .update({ total_expenses: newTotal })
-          .eq('id', summary.id)
+        const { data: sumRows, error: sumError } = await adminClient
+          .from('expenses')
+          .select('amount')
+          .eq('monthly_expense_summary_id', summary.id)
 
-        if (updateError) {
-          console.error('Error updating monthly summary:', updateError, {
-            summaryId: summary.id,
-            oldTotal: summary.total_expenses,
-            amountDifference,
-            newTotal
-          })
+        if (sumError) {
+          console.error('❌ Error querying expenses for summary recalc on update:', sumError)
         } else {
-          console.log(`Updated summary ${summary.id} total to ${newTotal}`)
+          console.log(`📊 Found ${sumRows?.length || 0} expenses linked to summary ${summary.id}`)
+          const newTotal = (sumRows || []).reduce((acc: number, r: { amount: number | string }) => acc + Number(r.amount || 0), 0)
+          console.log(`💰 Calculated new total: ${newTotal} (old total was ${summary.total_expenses})`)
+
+          const { error: updateError } = await adminClient
+            .from('monthly_expense_summaries')
+            .update({ total_expenses: newTotal })
+            .eq('id', summary.id)
+
+          if (updateError) {
+            console.error('❌ Error updating monthly summary on update:', updateError, {
+              summaryId: summary.id,
+              oldTotal: summary.total_expenses,
+              newTotal
+            })
+          } else {
+            console.log(`✅ Successfully updated summary ${summary.id} total to ${newTotal}`)
+          }
         }
       }
     }
@@ -416,47 +428,78 @@ export async function DELETE(
       return NextResponse.json({ error: 'Property not found or access denied' }, { status: 404 })
     }
 
+    console.log(`🗑️ Deleting expense ${expenseId}`)
+
     const { error } = await supabaseWithToken
       .from('expenses')
       .delete()
       .eq('id', expenseId)
 
-    if (error) throw error
+    if (error) {
+      console.error('❌ Error deleting expense:', error)
+      throw error
+    }
+
+    console.log(`✅ Expense ${expenseId} deleted successfully`)
 
     // Update monthly expenses summary
     const expenseDate = new Date(existingExpense.date)
     const periodYear = expenseDate.getFullYear()
     const periodMonth = expenseDate.getMonth() + 1
 
-    const { data: summary } = await supabaseWithToken
+    console.log(`🔍 Looking for summary: property_id=${existingExpense.property_id}, period_year=${periodYear}, period_month=${periodMonth}, admin_id=${adminRecord.user_id}`)
+
+    // Use admin client to query summary (same as CREATE route) to avoid RLS issues
+    const adminClient = getAdminClient()
+    const { data: summary, error: summaryError } = await adminClient
       .from('monthly_expense_summaries')
       .select('id, total_expenses')
       .eq('property_id', existingExpense.property_id)
       .eq('period_year', periodYear)
       .eq('period_month', periodMonth)
       .eq('admin_id', adminRecord.user_id)
-      .single()
+      .maybeSingle()
+
+    if (summaryError) {
+      console.error('❌ Error finding monthly summary:', summaryError)
+    } else if (!summary) {
+      console.log('⚠️ No monthly summary found for this expense - this is normal if all expenses for this month were deleted')
+    }
 
     if (summary) {
-      // Subtract the deleted expense amount from the summary total
-      const newTotal = Math.max(0, summary.total_expenses - existingExpense.amount)
+      console.log(`🔄 Recomputing total for summary ${summary.id} after expense deletion`)
 
-      // Use admin client to bypass potential RLS issues
+      // Small delay to ensure transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Recompute total from linked expenses to avoid drift
       const adminClient = getAdminClient()
-      const { error: updateError } = await adminClient
-        .from('monthly_expense_summaries')
-        .update({ total_expenses: newTotal })
-        .eq('id', summary.id)
+      const { data: sumRows, error: sumError } = await adminClient
+        .from('expenses')
+        .select('amount')
+        .eq('monthly_expense_summary_id', summary.id)
 
-      if (updateError) {
-        console.error('Error updating monthly summary after deletion:', updateError, {
-          summaryId: summary.id,
-          oldTotal: summary.total_expenses,
-          amount: existingExpense.amount,
-          newTotal
-        })
+      if (sumError) {
+        console.error('❌ Error querying expenses for summary recalc:', sumError)
       } else {
-        console.log(`Updated summary ${summary.id} total to ${newTotal} after deletion`)
+        console.log(`📊 Found ${sumRows?.length || 0} expenses linked to summary ${summary.id}`)
+        const newTotal = (sumRows || []).reduce((acc: number, r: { amount: number | string }) => acc + Number(r.amount || 0), 0)
+        console.log(`💰 Calculated new total: ${newTotal} (old total was ${summary.total_expenses})`)
+
+        const { error: updateError } = await adminClient
+          .from('monthly_expense_summaries')
+          .update({ total_expenses: newTotal })
+          .eq('id', summary.id)
+
+        if (updateError) {
+          console.error('❌ Error updating monthly summary after deletion:', updateError, {
+            summaryId: summary.id,
+            newTotal,
+            oldTotal: summary.total_expenses
+          })
+        } else {
+          console.log(`✅ Successfully updated summary ${summary.id} total to ${newTotal}`)
+        }
       }
     }
 

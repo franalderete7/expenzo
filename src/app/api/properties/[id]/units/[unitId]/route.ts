@@ -44,7 +44,7 @@ export async function GET(
     }
 
     // Verify property belongs to user
-    const { data: property, error: propertyError } = await supabaseWithToken
+    const { error: propertyError } = await supabaseWithToken
       .from('properties')
       .select('id')
       .eq('id', propertyId)
@@ -134,7 +134,7 @@ export async function PUT(
     }
 
     // Verify property belongs to user
-    const { data: property, error: propertyError } = await supabase
+    const { error: propertyError } = await supabase
       .from('properties')
       .select('id')
       .eq('id', propertyId)
@@ -149,7 +149,16 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { unit_number, status, expense_percentage } = body
+    const {
+      unit_number,
+      status,
+      expense_percentage,
+      nis_number,
+      catastro,
+      water_account,
+      gas_account,
+      electricity_account
+    } = body
 
     // Validate required fields
     if (!unit_number || !status || expense_percentage === undefined) {
@@ -166,6 +175,11 @@ export async function PUT(
         unit_number,
         status,
         expense_percentage,
+        nis_number: nis_number || null,
+        catastro: catastro || null,
+        water_account: water_account || null,
+        gas_account: gas_account || null,
+        electricity_account: electricity_account || null,
         updated_at: new Date().toISOString()
       })
       .eq('id', unitId)
@@ -245,7 +259,7 @@ export async function DELETE(
     }
 
     // Verify property belongs to user
-    const { data: property, error: propertyError } = await supabaseWithToken
+    const { error: propertyError } = await supabaseWithToken
       .from('properties')
       .select('id')
       .eq('id', propertyId)

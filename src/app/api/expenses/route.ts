@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
         .eq('period_year', periodYear)
         .eq('period_month', periodMonth)
         .eq('admin_id', adminRecord.user_id)
-        .single()
+        .maybeSingle()
 
       if (summaryError) {
         console.error('Error querying existing summary:', summaryError, {
@@ -334,7 +334,35 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
+    // Always recompute the monthly summary total from linked expenses
+    if (monthlySummaryId) {
+      console.log(`🔄 Recomputing total for summary ${monthlySummaryId} after expense creation`)
 
+      const adminClient = getAdminClient()
+      const { data: sumRows, error: sumError } = await adminClient
+        .from('expenses')
+        .select('amount')
+        .eq('monthly_expense_summary_id', monthlySummaryId)
+
+      if (sumError) {
+        console.error('❌ Error querying expenses for summary recalc on create:', sumError)
+      } else {
+        console.log(`📊 Found ${sumRows?.length || 0} expenses linked to summary ${monthlySummaryId}`)
+        const newTotal = (sumRows || []).reduce((acc: number, r: { amount: number | string }) => acc + Number(r.amount || 0), 0)
+        console.log(`💰 Calculated new total: ${newTotal}`)
+
+        const { error: totalUpdateError } = await adminClient
+          .from('monthly_expense_summaries')
+          .update({ total_expenses: newTotal })
+          .eq('id', monthlySummaryId)
+
+        if (totalUpdateError) {
+          console.error('❌ Failed to recompute monthly summary total after insert:', totalUpdateError)
+        } else {
+          console.log(`✅ Successfully updated summary ${monthlySummaryId} total to ${newTotal}`)
+        }
+      }
+    }
 
     return NextResponse.json({
       expense,

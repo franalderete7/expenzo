@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Use service role key for admin operations
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     console.log('Starting database setup...')
 
     // Execute SQL commands using Supabase's postgres client
-    const { data, error } = await supabaseAdmin
+    await supabaseAdmin
       .from('_temp_setup')
       .select('*')
       .limit(1)
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Alternative: Provide the SQL as a downloadable script
-export async function GET(request: NextRequest) {
+export async function GET() {
   const sqlScript = `-- Expense Management Tables Setup
 -- Copy and paste this entire script into your Supabase SQL Editor
 

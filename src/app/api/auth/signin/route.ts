@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user exists in admins table, create if not
-    const { data: adminData, error: adminError } = await supabase
+    const { error: adminError } = await supabase
       .from('admins')
       .select('*')
       .eq('email', email)

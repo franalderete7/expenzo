@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 
 // GET all residents for a property
@@ -204,6 +203,28 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+
+      // Check if unit already has a resident
+      const { data: existingResident, error: residentCheckError } = await supabaseWithToken
+        .from('residents')
+        .select('id, name')
+        .eq('unit_id', unit_id)
+        .single()
+
+      if (existingResident) {
+        return NextResponse.json(
+          { error: `La unidad ya tiene un residente asignado (${existingResident.name}). Una unidad solo puede tener un residente.` },
+          { status: 409 }
+        )
+      }
+
+      if (residentCheckError && residentCheckError.code !== 'PGRST116') {
+        console.error('Error checking for existing resident:', residentCheckError)
+        return NextResponse.json(
+          { error: 'Error verificando residentes existentes' },
+          { status: 500 }
+        )
+      }
     }
 
     // Create the resident
@@ -235,6 +256,19 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    // If unit_id was provided, update unit status to occupied
+    if (unit_id) {
+      const { error: updateError } = await supabaseWithToken
+        .from('units')
+        .update({ status: 'occupied' })
+        .eq('id', unit_id)
+
+      if (updateError) {
+        console.error('Error updating unit status:', updateError)
+        // Don't throw here, resident was created successfully
+      }
+    }
 
     return NextResponse.json({
       resident,

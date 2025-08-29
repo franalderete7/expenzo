@@ -13,6 +13,7 @@ import { UnitsTable } from '@/components/UnitsTable'
 import { ResidentsTable } from '@/components/ResidentsTable'
 import { ExpensesTable } from '@/components/ExpensesTable'
 import { ContractsTable } from '@/components/ContractsTable'
+import { LiquidacionesTable } from '@/components/LiquidacionesTable'
 import { Toaster } from 'sonner'
 
 // Inner component that uses the context
@@ -24,7 +25,7 @@ function DashboardInner() {
   const residentsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
   const expensesTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
   const contractsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
-  const [activeTab, setActiveTab] = useState<'units' | 'residents' | 'expenses' | 'contracts'>('units')
+  const [activeTab, setActiveTab] = useState<'units' | 'residents' | 'expenses' | 'contracts' | 'liquidaciones'>('units')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -68,7 +69,7 @@ function DashboardInner() {
     }
   }
 
-  const handleTabChange = (tab: 'units' | 'residents' | 'expenses' | 'contracts') => {
+  const handleTabChange = (tab: 'units' | 'residents' | 'expenses' | 'contracts' | 'liquidaciones') => {
     setActiveTab(tab)
   }
 
@@ -144,8 +145,10 @@ function DashboardInner() {
                   <ResidentsTable ref={residentsTableRef} />
                 ) : activeTab === 'expenses' ? (
                   <ExpensesTable ref={expensesTableRef} />
-                ) : (
+                ) : activeTab === 'contracts' ? (
                   <ContractsTable ref={contractsTableRef} />
+                ) : (
+                  <LiquidacionesTable />
                 )}
               </div>
             </main>
