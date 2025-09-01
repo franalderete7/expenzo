@@ -76,7 +76,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     tenant_id: 0,
     start_date: '',
     end_date: '',
-    initial_rent_amount: 0,
+    initial_rent_amount: undefined,
     rent_increase_frequency: 'quarterly',
     status: 'active',
     currency: 'ARS',
@@ -193,7 +193,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       tenant_id: 0,
       start_date: '',
       end_date: '',
-      initial_rent_amount: 0,
+      initial_rent_amount: undefined,
       rent_increase_frequency: 'quarterly',
       status: 'active',
       currency: 'ARS',
@@ -224,7 +224,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       return
     }
     if (!formData.initial_rent_amount || formData.initial_rent_amount <= 0) {
-      toast.error('El monto inicial debe ser mayor a 0')
+      toast.error('El monto inicial es requerido y debe ser mayor a 0')
       return
     }
 
@@ -280,7 +280,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       tenant_id: contract.tenant_id,
       start_date: contract.start_date,
       end_date: contract.end_date,
-      initial_rent_amount: contract.initial_rent_amount,
+      initial_rent_amount: contract.initial_rent_amount || undefined,
       rent_increase_frequency: contract.rent_increase_frequency,
       status: contract.status,
       currency: contract.currency || 'ARS',
@@ -309,7 +309,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       return
     }
     if (!formData.initial_rent_amount || formData.initial_rent_amount <= 0) {
-      toast.error('El monto inicial debe ser mayor a 0')
+      toast.error('El monto inicial es requerido y debe ser mayor a 0')
       return
     }
 
@@ -528,8 +528,14 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                   type="number"
                   min="0"
                   step="0.01"
-                  value={formData.initial_rent_amount}
-                  onChange={(e) => setFormData({ ...formData, initial_rent_amount: parseFloat(e.target.value) || 0 })}
+                  value={formData.initial_rent_amount || ''}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setFormData({
+                      ...formData,
+                      initial_rent_amount: value === '' ? undefined : parseFloat(value) || undefined
+                    })
+                  }}
                   className="col-span-3"
                   placeholder="0.00"
                 />
@@ -830,8 +836,14 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.initial_rent_amount}
-                onChange={(e) => setFormData({ ...formData, initial_rent_amount: parseFloat(e.target.value) || 0 })}
+                value={formData.initial_rent_amount || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({
+                    ...formData,
+                    initial_rent_amount: value === '' ? undefined : parseFloat(value) || undefined
+                  })
+                }}
                 className="col-span-3"
               />
             </div>

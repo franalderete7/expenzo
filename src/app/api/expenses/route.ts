@@ -138,7 +138,9 @@ export async function GET(request: NextRequest) {
     // Get monthly total if filtering by month and year
     let monthlyTotal = 0
     if (month && year) {
-      const { data: monthlySummary } = await supabaseWithToken
+      console.log(`🔍 Getting monthly total for property ${propertyId}, year ${year}, month ${month}, admin ${adminRecord.user_id}`)
+
+      const { data: monthlySummary, error: summaryError } = await supabaseWithToken
         .from('monthly_expense_summaries')
         .select('total_expenses')
         .eq('property_id', propertyId)
@@ -147,16 +149,44 @@ export async function GET(request: NextRequest) {
         .eq('admin_id', adminRecord.user_id)
         .single()
 
+      if (summaryError) {
+        console.log(`⚠️ Monthly summary query error:`, summaryError)
+      }
+
       const fromSummary = monthlySummary?.total_expenses
       const parsedSummary =
         typeof fromSummary === 'string' ? parseFloat(fromSummary) : (fromSummary || 0)
 
+      console.log(`📊 Monthly summary data:`, monthlySummary, `parsed total: ${parsedSummary}`)
+
       if (!isNaN(parsedSummary) && parsedSummary > 0) {
         monthlyTotal = parsedSummary
+        console.log(`✅ Using summary total: ${monthlyTotal}`)
       } else {
-        // Fallback: derive from fetched expenses in this response
-        const sum = (expenses || []).reduce((acc: number, e: { amount: number | string }) => acc + (Number(e.amount) || 0), 0)
-        monthlyTotal = sum
+        // Fallback: query full month (ignore pagination) to compute exact total by date range
+        const yearNum = parseInt(year)
+        const monthNum = parseInt(month)
+        const startDate = new Date(yearNum, monthNum - 1, 1)
+        const endDate = new Date(yearNum, monthNum, 0)
+
+        const { data: fullMonthRows, error: fullMonthError } = await supabaseWithToken
+          .from('expenses')
+          .select('amount')
+          .eq('property_id', propertyId)
+          .gte('date', startDate.toISOString().split('T')[0])
+          .lte('date', endDate.toISOString().split('T')[0])
+
+        if (fullMonthError) {
+          console.log('⚠️ Fallback full-month sum query error:', fullMonthError)
+          // As last resort, use current page sum
+          const sum = (expenses || []).reduce((acc: number, e: { amount: number | string }) => acc + (Number(e.amount) || 0), 0)
+          monthlyTotal = sum
+          console.log(`⚠️ Using fallback total from current page: ${monthlyTotal} (found ${expenses?.length || 0} expenses)`)
+        } else {
+          const sum = (fullMonthRows || []).reduce((acc: number, r: { amount: number | string }) => acc + Number(r.amount || 0), 0)
+          monthlyTotal = sum
+          console.log(`✅ Using recomputed full-month total from expenses table: ${monthlyTotal} (rows: ${fullMonthRows?.length || 0})`)
+        }
       }
     }
 
@@ -236,9 +266,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure monthly summary exists (and get id)
-    const expenseDate = new Date(date)
-    const periodYear = expenseDate.getFullYear()
-    const periodMonth = expenseDate.getMonth() + 1
+    // IMPORTANT: Derive year/month from the provided date string to avoid timezone shifts
+    const parseYearMonth = (dateStr: string) => {
+      const [y, m] = dateStr.split('-')
+      return { year: parseInt(y, 10), month: parseInt(m, 10) }
+    }
+    const { year: periodYear, month: periodMonth } = parseYearMonth(date)
+    console.log(`🗓️ Parsed period from date ${date} → year=${periodYear}, month=${periodMonth}`)
 
     let monthlySummaryId: number | null = null
     {
@@ -309,7 +343,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`📝 Inserting expense with monthly_expense_summary_id: ${monthlySummaryId}`)
+    console.log(`📝 Inserting HONORARIOS expense with monthly_expense_summary_id: ${monthlySummaryId}, type: ${expense_type}, amount: ${amount}`)
 
     const { data: expense, error } = await supabaseWithToken
       .from('expenses')
@@ -360,7 +394,7 @@ export async function POST(request: NextRequest) {
         if (totalUpdateError) {
           console.error('❌ Failed to recompute monthly summary total after insert:', totalUpdateError)
         } else {
-          console.log(`✅ Successfully updated summary ${monthlySummaryId} total to ${newTotal}`)
+          console.log(`✅ Successfully updated HONORARIOS summary ${monthlySummaryId} total to ${newTotal} (added ${parseFloat(amount)})`)
         }
       }
     }

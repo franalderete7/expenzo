@@ -72,6 +72,13 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
+  const [honorariosDialogOpen, setHonorariosDialogOpen] = useState(false)
+
+  // Honorarios calculation state
+  const [honorariosPercentage, setHonorariosPercentage] = useState<number>(4)
+  const [honorariosTotal, setHonorariosTotal] = useState<number>(0)
+  const [honorariosAmount, setHonorariosAmount] = useState<number>(0)
+  const [calculatingHonorarios, setCalculatingHonorarios] = useState(false)
 
   // Form data
   const [formData, setFormData] = useState<ExpenseFormData>({
@@ -207,7 +214,11 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       toast.success('Gasto creado exitosamente.')
       setCreateDialogOpen(false)
       resetForm()
-      fetchExpenses()
+
+      // Small delay to ensure database transaction completes, then refresh
+      setTimeout(() => {
+        fetchExpenses()
+      }, 500)
     } catch (error) {
       console.error('Error creating expense:', error)
       toast.error(error instanceof Error ? error.message : 'Error creating expense')
@@ -276,7 +287,11 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       setEditDialogOpen(false)
       resetForm()
       setEditingExpense(null)
-      fetchExpenses()
+
+      // Small delay to ensure database transaction completes, then refresh
+      setTimeout(() => {
+        fetchExpenses()
+      }, 500)
     } catch (error) {
       console.error('Error updating expense:', error)
       toast.error(error instanceof Error ? error.message : 'Error updating expense')
@@ -307,7 +322,11 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       }
 
       toast.success('Gasto eliminado exitosamente.')
-      fetchExpenses()
+
+      // Small delay to ensure database transaction completes, then refresh
+      setTimeout(() => {
+        fetchExpenses()
+      }, 500)
     } catch (error) {
       console.error('Error deleting expense:', error)
       toast.error(error instanceof Error ? error.message : 'Error deleting expense')
@@ -435,6 +454,115 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
     }
   }
 
+  const calculateHonorarios = async () => {
+    if (!selectedProperty) return
+
+    try {
+      setCalculatingHonorarios(true)
+
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast.error('No active session')
+        return
+      }
+
+      // Fetch total expenses for the current filtered month/year
+      const response = await fetch(
+        `/api/expenses?property_id=${selectedProperty.id}&month=${filterMonth}&year=${filterYear}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Error fetching expenses')
+      }
+
+      const data = await response.json()
+      const totalExpenses = data.expenses?.reduce((sum: number, expense: Expense) =>
+        sum + Number(expense.amount), 0) || 0
+
+      // Exclude any existing "Honorarios Administrador" expenses from the total
+      const honorariosExpenses = data.expenses?.filter((expense: Expense) =>
+        expense.expense_type?.toLowerCase().includes('honorarios') ||
+        expense.expense_type?.toLowerCase().includes('administrador')
+      ) || []
+
+      const honorariosTotal = honorariosExpenses.reduce((sum: number, expense: Expense) =>
+        sum + Number(expense.amount), 0)
+
+      const baseTotal = totalExpenses - honorariosTotal
+      const calculatedAmount = Math.round((baseTotal * honorariosPercentage) / 100 * 100) / 100
+
+      setHonorariosTotal(baseTotal)
+      setHonorariosAmount(calculatedAmount)
+
+    } catch (error) {
+      console.error('Error calculating honorarios:', error)
+      toast.error('Error calculando honorarios')
+    } finally {
+      setCalculatingHonorarios(false)
+    }
+  }
+
+  const createHonorariosExpense = async () => {
+    if (!selectedProperty) return
+
+    try {
+      setCalculatingHonorarios(true)
+
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast.error('No active session')
+        return
+      }
+
+      // Create the expense
+      const expenseData = {
+        property_id: selectedProperty.id,
+        expense_type: 'Honorarios Administrador',
+        amount: honorariosAmount,
+        date: `${filterYear}-${filterMonth.padStart(2, '0')}-01`,
+        description: `Honorarios calculados automáticamente (${honorariosPercentage}% de gastos totales: $${honorariosTotal.toLocaleString('es-ES')})`
+      }
+
+      const response = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(expenseData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error creating expense')
+      }
+
+      await response.json()
+
+      toast.success('Honorarios creados exitosamente')
+      setHonorariosDialogOpen(false)
+
+      // Longer delay to ensure database transaction completes, then refresh
+      setTimeout(() => {
+        console.log('🔄 Refreshing expenses after honorarios creation...')
+        fetchExpenses()
+      }, 1000)
+
+    } catch (error) {
+      console.error('Error creating honorarios expense:', error)
+      toast.error(error instanceof Error ? error.message : 'Error creando gasto de honorarios')
+    } finally {
+      setCalculatingHonorarios(false)
+    }
+  }
+
 
 
   if (!selectedProperty) {
@@ -449,12 +577,97 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Gastos</h2>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" /> Crear Gasto
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Dialog open={honorariosDialogOpen} onOpenChange={setHonorariosDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" onClick={() => {
+                calculateHonorarios()
+              }}>
+                <DollarSign className="mr-2 h-4 w-4" />
+                Calcular Honorarios
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Calcular Honorarios Administrador</DialogTitle>
+                <DialogDescription>
+                  Calcula automáticamente los honorarios basados en el porcentaje de gastos totales del mes filtrado.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="bg-blue-50 p-3 rounded-lg border">
+                  <div className="text-sm text-blue-800">
+                    <div className="flex justify-between mb-1">
+                      <span>Período:</span>
+                      <span className="font-semibold">{getMonthName(filterMonth)} {filterYear}</span>
+                    </div>
+                    <div className="text-xs text-blue-600">
+                      Los honorarios se calcularán para el mes actualmente filtrado
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="honorarios_percentage" className="text-right">
+                    Porcentaje
+                  </Label>
+                  <Input
+                    id="honorarios_percentage"
+                    type="number"
+                    value={honorariosPercentage}
+                    onChange={(e) => setHonorariosPercentage(parseFloat(e.target.value) || 4)}
+                    className="col-span-3"
+                    min="0"
+                    max="20"
+                    step="0.01"
+                  />
+                </div>
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Gastos Totales:</span>
+                      <span className="font-semibold">
+                        ${honorariosTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Honorarios ({honorariosPercentage}%):</span>
+                      <span className="font-semibold text-green-600">
+                        ${honorariosAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setHonorariosDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={createHonorariosExpense}
+                  disabled={calculatingHonorarios || honorariosAmount <= 0}
+                >
+                  {calculatingHonorarios ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Creando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Crear Gasto
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" /> Crear Gasto
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Crear Nuevo Gasto</DialogTitle>
@@ -530,8 +743,9 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
                 {loading ? 'Creando...' : 'Crear Gasto'}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}

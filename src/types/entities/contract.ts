@@ -33,7 +33,7 @@ export interface ContractFormData {
   tenant_id: number
   start_date: string
   end_date: string
-  initial_rent_amount: number
+  initial_rent_amount: number | undefined
   rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status?: 'active' | 'expired' | 'renewed'
   currency?: string

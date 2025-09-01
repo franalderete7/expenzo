@@ -167,6 +167,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Property not found or access denied' }, { status: 404 })
     }
 
+    console.log(`🔄 Updating HONORARIOS expense ${expenseId} with amount ${amount}, type: ${expense_type}`)
+
     const { data: updatedExpense, error } = await supabaseWithToken
       .from('expenses')
       .update({
@@ -175,7 +177,6 @@ export async function PUT(
         date,
         description: description || null,
         // admin_id and property_id remain unchanged on update
-        updated_at: new Date().toISOString()
       })
       .eq('id', expenseId)
       .select(`
@@ -192,12 +193,14 @@ export async function PUT(
     if (error) throw error
 
     // Update monthly expenses summary by moving monthly_expense_summary_id if needed and recalculating totals
-    const oldExpenseDate = new Date(existingExpense.date)
-    const newExpenseDate = new Date(date)
-    const oldPeriodYear = oldExpenseDate.getFullYear()
-    const oldPeriodMonth = oldExpenseDate.getMonth() + 1
-    const newPeriodYear = newExpenseDate.getFullYear()
-    const newPeriodMonth = newExpenseDate.getMonth() + 1
+    // Derive year/month directly from YYYY-MM-DD string to avoid timezone issues
+    const parseYearMonth = (dateStr: string) => {
+      const [y, m] = dateStr.split('-')
+      return { year: parseInt(y, 10), month: parseInt(m, 10) }
+    }
+    const { year: oldPeriodYear, month: oldPeriodMonth } = parseYearMonth(existingExpense.date)
+    const { year: newPeriodYear, month: newPeriodMonth } = parseYearMonth(date)
+    console.log(`🗓️ Updating expense period: old=${oldPeriodYear}-${oldPeriodMonth}, new=${newPeriodYear}-${newPeriodMonth}`)
 
     // If the date changed, we need to handle both old and new periods
     if (oldPeriodYear !== newPeriodYear || oldPeriodMonth !== newPeriodMonth) {
@@ -405,6 +408,7 @@ export async function DELETE(
         property_id,
         amount,
         date,
+        expense_type,
         properties!inner (
           id,
           admin_id
@@ -429,7 +433,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Property not found or access denied' }, { status: 404 })
     }
 
-    console.log(`🗑️ Deleting expense ${expenseId}`)
+    console.log(`🗑️ Deleting HONORARIOS expense ${expenseId}, type: ${existingExpense.expense_type}, amount: ${existingExpense.amount}`)
 
     const { error } = await supabaseWithToken
       .from('expenses')
@@ -493,13 +497,13 @@ export async function DELETE(
           .eq('id', summary.id)
 
         if (updateError) {
-          console.error('❌ Error updating monthly summary after deletion:', updateError, {
+          console.error('❌ Error updating HONORARIOS monthly summary after deletion:', updateError, {
             summaryId: summary.id,
             newTotal,
             oldTotal: summary.total_expenses
           })
         } else {
-          console.log(`✅ Successfully updated summary ${summary.id} total to ${newTotal}`)
+          console.log(`✅ Successfully updated HONORARIOS summary ${summary.id} total to ${newTotal}`)
         }
       }
     }
