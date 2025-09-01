@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
+
 
 import { useProperty } from '@/contexts/PropertyContext'
 import { supabase } from '@/lib/supabase'
@@ -207,11 +207,6 @@ export function DynamicSidebar({
                   >
                     <section.icon className="h-4 w-4" />
                     <span className="font-medium">{section.title}</span>
-                    <Badge variant="secondary" className="ml-auto">
-                      {('count' in section && typeof (section as { count?: number }).count === 'number')
-                        ? (section as { count?: number }).count as number
-                        : section.items.length}
-                    </Badge>
                   </div>
                 </div>
               ))

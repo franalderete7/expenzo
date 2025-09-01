@@ -45,6 +45,7 @@ import { Unit } from '@/types/entities'
 import { supabase } from '@/lib/supabase'
 import { Plus, Edit, Trash2, Home, ArrowUp, ArrowDown } from 'lucide-react'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 
 interface UnitsTableRef {
   openCreateDialog: () => void
@@ -66,6 +67,7 @@ type SortDirection = 'asc' | 'desc'
 
 const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
   const { selectedProperty } = useProperty()
+  const router = useRouter()
   const [units, setUnits] = useState<Unit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -593,7 +595,11 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
                 const hasResident = resident && resident.name
 
                 return (
-                  <TableRow key={unit.id}>
+                  <TableRow
+                    key={unit.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push(`/dashboard/units/${unit.id}`)}
+                  >
                     <TableCell className="font-medium">{unit.unit_number}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(unit.status)}>

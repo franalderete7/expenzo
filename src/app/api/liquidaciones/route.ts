@@ -76,14 +76,16 @@ export async function GET(request: NextRequest) {
         allocation_percentage,
         unit_id,
         monthly_expense_summary_id,
-        monthly_expense_summaries (
+        monthly_expense_summaries!inner (
           period_year,
           period_month,
-          total_expenses
+          total_expenses,
+          property_id
         )
       `)
       .eq('monthly_expense_summaries.period_year', year)
       .eq('monthly_expense_summaries.period_month', month)
+      .eq('monthly_expense_summaries.property_id', propertyId)
 
     if (allocationsError) {
       console.error('Error fetching allocations:', allocationsError)
@@ -103,11 +105,13 @@ export async function GET(request: NextRequest) {
         period_month,
         contracts!inner (
           unit_id,
-          tenant_id
+          tenant_id,
+          property_id
         )
       `)
       .eq('period_year', year)
       .eq('period_month', month)
+      .eq('contracts.property_id', propertyId)
 
     if (rentsError) {
       console.error('Error fetching rents:', rentsError)

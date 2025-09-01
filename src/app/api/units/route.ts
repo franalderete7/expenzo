@@ -1,18 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
+    // Extract authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Units API: No authorization header or invalid format')
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - No valid authorization header' },
         { status: 401 }
       )
     }
+
+    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+    console.log('Units API: Token extracted, length:', token.length)
+
+    // Create Supabase client with the user's token
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseWithToken = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    )
+
+    // Get current user
+    console.log('Units API: Attempting to get user...')
+    const { data: { user }, error: userError } = await supabaseWithToken.auth.getUser()
+
+    if (userError) {
+      console.log('Units API: User error:', userError)
+      return NextResponse.json(
+        { error: 'Unauthorized - User authentication failed', details: userError.message },
+        { status: 401 }
+      )
+    }
+
+    if (!user) {
+      console.log('Units API: No user found')
+      return NextResponse.json(
+        { error: 'Unauthorized - No user data' },
+        { status: 401 }
+      )
+    }
+
+    console.log('Units API: User authenticated successfully:', user.id)
 
     const { searchParams } = new URL(request.url)
     const propertyId = searchParams.get('property_id')
@@ -22,7 +59,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit
 
     // Build query - only show units from user's properties
-    let query = supabase
+    let query = supabaseWithToken
       .from('units')
       .select(`
         *,
@@ -42,12 +79,14 @@ export async function GET(request: NextRequest) {
       `, { count: 'exact' })
 
     // Filter by user's properties
-    const { data: userProperties } = await supabase
+    console.log('Units API: Fetching user properties for user UUID:', user.id)
+    const { data: userProperties } = await supabaseWithToken
       .from('properties')
       .select('id')
       .eq('admin_id', user.id)
 
     const propertyIds = userProperties?.map(p => p.id) || []
+    console.log('Units API: Found', propertyIds.length, 'user properties')
     query = query.in('property_id', propertyIds)
 
     // Apply optional filters
@@ -94,15 +133,18 @@ export async function POST(request: NextRequest) {
     // Extract authorization header
     const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Units POST: No authorization header or invalid format')
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - No valid authorization header' },
         { status: 401 }
       )
     }
 
     const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+    console.log('Units POST: Token extracted, length:', token.length)
 
     // Create Supabase client with the user's token
+    const { createClient } = await import('@supabase/supabase-js')
     const supabaseWithToken = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -116,14 +158,26 @@ export async function POST(request: NextRequest) {
     )
 
     // Get current user
+    console.log('Units POST: Attempting to get user...')
     const { data: { user }, error: userError } = await supabaseWithToken.auth.getUser()
 
-    if (userError || !user) {
+    if (userError) {
+      console.log('Units POST: User error:', userError)
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - User authentication failed', details: userError.message },
         { status: 401 }
       )
     }
+
+    if (!user) {
+      console.log('Units POST: No user found')
+      return NextResponse.json(
+        { error: 'Unauthorized - No user data' },
+        { status: 401 }
+      )
+    }
+
+    console.log('Units POST: User authenticated successfully:', user.id)
 
     const body = await request.json()
     const { property_id, unit_number, expense_percentage } = body

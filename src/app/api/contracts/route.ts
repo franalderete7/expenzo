@@ -26,12 +26,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const propertyId = searchParams.get('property_id')
+    const unitId = searchParams.get('unit_id')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const offset = (page - 1) * limit
 
-    if (!propertyId) {
-      return NextResponse.json({ error: 'Property ID is required' }, { status: 400 })
+    // If filtering by unit_id, we don't require property_id
+    if (!propertyId && !unitId) {
+      return NextResponse.json({ error: 'Property ID or Unit ID is required' }, { status: 400 })
     }
 
     // Get user's admin record
@@ -48,23 +50,25 @@ export async function GET(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Verify user owns the property
-    const { data: property, error: propertyError } = await supabaseWithToken
-      .from('properties')
-      .select('id')
-      .eq('id', propertyId)
-      .eq('admin_id', user.id)
-      .single()
+    // Verify user owns the property (only when filtering by property_id)
+    if (propertyId) {
+      const { data: property, error: propertyError } = await supabaseWithToken
+        .from('properties')
+        .select('id')
+        .eq('id', propertyId)
+        .eq('admin_id', user.id)
+        .single()
 
-    if (propertyError || !property) {
-      return NextResponse.json({
-        error: 'Property not found or access denied',
-        details: `Property ID: ${propertyId}, Admin ID: ${adminRecord.user_id}, Error: ${propertyError?.message}`
-      }, { status: 404 })
+      if (propertyError || !property) {
+        return NextResponse.json({
+          error: 'Property not found or access denied',
+          details: `Property ID: ${propertyId}, Admin ID: ${adminRecord.user_id}, Error: ${propertyError?.message}`
+        }, { status: 404 })
+      }
     }
 
-    // Get contracts for units in this property and scope by admin via join
-    const { data: contracts, error, count } = await supabaseWithToken
+    // Build query based on filter type
+    let query = supabaseWithToken
       .from('contracts')
       .select(`
         *,
@@ -83,10 +87,24 @@ export async function GET(request: NextRequest) {
           email
         )
       `, { count: 'exact' })
-      .eq('unit.property_id', propertyId)
-      .eq('unit.property.admin_id', user.id)
+
+    if (unitId) {
+      // When filtering by unit_id, verify ownership through the unit's property
+      query = query
+        .eq('unit_id', unitId)
+        .eq('unit.property.admin_id', user.id)
+    } else {
+      // When filtering by property_id, get all contracts for units in that property
+      query = query
+        .eq('unit.property_id', propertyId)
+        .eq('unit.property.admin_id', user.id)
+    }
+
+    query = query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
+
+    const { data: contracts, error, count } = await query
 
     if (error) {
       console.error('Get contracts error:', error)
