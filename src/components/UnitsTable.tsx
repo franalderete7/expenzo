@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -76,6 +77,7 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [bulkCreateDialogOpen, setBulkCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
 
@@ -90,6 +92,10 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
     gas_account: '',
     electricity_account: ''
   })
+
+  // Bulk create data
+  const [bulkCreateData, setBulkCreateData] = useState('')
+  const [bulkCreating, setBulkCreating] = useState(false)
 
   useImperativeHandle(ref, () => ({
     openCreateDialog: () => setCreateDialogOpen(true)
@@ -230,6 +236,154 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
     } catch (err) {
       console.error('Error creating unit:', err)
       toast.error(err instanceof Error ? err.message : 'Error creating unit')
+    }
+  }
+
+  const handleBulkCreateUnits = async () => {
+    if (!selectedProperty) return
+
+    if (!bulkCreateData.trim()) {
+      toast.error('Por favor ingresa los datos de las unidades')
+      return
+    }
+
+    try {
+      setBulkCreating(true)
+
+      // Parse the bulk data
+      const lines = bulkCreateData.trim().split('\n')
+      const unitsToCreate: Array<{
+        unit_number: string
+        expense_percentage: number
+      }> = []
+
+      let hasErrors = false
+      const errors: string[] = []
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim()
+        if (!line) continue // Skip empty lines
+
+        // Split by tab or multiple spaces
+        const parts = line.split(/\t|\s{2,}/)
+        if (parts.length < 2) {
+          errors.push(`Línea ${i + 1}: Formato inválido. Usa "número_de_unidad porcentaje_decimal"`)
+          hasErrors = true
+          continue
+        }
+
+        const [unitNumber, percentageStr] = parts
+
+        // Validate unit number
+        if (!unitNumber.trim()) {
+          errors.push(`Línea ${i + 1}: Número de unidad vacío`)
+          hasErrors = true
+          continue
+        }
+
+        // Parse and validate percentage
+        const cleanedPercentage = percentageStr.replace(',', '.').trim()
+        const decimalValue = parseFloat(cleanedPercentage)
+
+        if (isNaN(decimalValue)) {
+          errors.push(`Línea ${i + 1}: Porcentaje inválido: ${percentageStr}`)
+          hasErrors = true
+          continue
+        }
+
+        // Convert decimal to percentage (multiply by 100)
+        const percentage = Math.round(decimalValue * 100 * 100) / 100 // Round to 2 decimal places
+
+        if (percentage <= 0 || percentage > 100) {
+          errors.push(`Línea ${i + 1}: Porcentaje debe estar entre 0.01 y 1.00: ${percentageStr}`)
+          hasErrors = true
+          continue
+        }
+
+        unitsToCreate.push({
+          unit_number: unitNumber.trim(),
+          expense_percentage: percentage
+        })
+      }
+
+      if (hasErrors) {
+        toast.error(`Errores encontrados:\n${errors.join('\n')}`)
+        return
+      }
+
+      if (unitsToCreate.length === 0) {
+        toast.error('No se encontraron unidades válidas para crear')
+        return
+      }
+
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        toast.error('No active session')
+        return
+      }
+
+      // Create units one by one
+      let successCount = 0
+      let errorCount = 0
+      const createErrors: string[] = []
+
+      for (const unit of unitsToCreate) {
+        try {
+          const response = await fetch('/api/units', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              property_id: selectedProperty.id,
+              unit_number: unit.unit_number,
+              status: 'vacant',
+              expense_percentage: unit.expense_percentage,
+              nis_number: null,
+              catastro: null,
+              water_account: null,
+              gas_account: null,
+              electricity_account: null
+            })
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            createErrors.push(`Unidad ${unit.unit_number}: ${errorData.error || 'Error desconocido'}`)
+            errorCount++
+          } else {
+            successCount++
+          }
+        } catch (err) {
+          createErrors.push(`Unidad ${unit.unit_number}: ${err instanceof Error ? err.message : 'Error desconocido'}`)
+          errorCount++
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        toast.success(`Se crearon ${successCount} unidad(es) exitosamente`)
+      }
+
+      if (errorCount > 0) {
+        toast.error(`Errores en ${errorCount} unidad(es):\n${createErrors.join('\n')}`)
+      }
+
+      // Close dialog and refresh if any were created successfully
+      if (successCount > 0) {
+        setBulkCreateDialogOpen(false)
+        setBulkCreateData('')
+        fetchUnits()
+      }
+
+    } catch (err) {
+      console.error('Error in bulk create:', err)
+      toast.error(err instanceof Error ? err.message : 'Error creating units')
+    } finally {
+      setBulkCreating(false)
     }
   }
 
@@ -379,14 +533,93 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
             Gestiona las unidades de {selectedProperty.name}
           </p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva Unidad
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+        <div className="flex gap-2">
+          <Dialog open={bulkCreateDialogOpen} onOpenChange={setBulkCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" onClick={() => setBulkCreateData('')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Crear Múltiples Unidades
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Crear Múltiples Unidades</DialogTitle>
+                <DialogDescription>
+                  Ingresa los datos de las unidades en el formato: número_de_unidad porcentaje_decimal
+                  <br />
+                  Ejemplo:
+                  <br />
+                  <code className="bg-muted px-2 py-1 rounded text-sm">
+                    1A 0,0426<br />
+                    1B 0,0213<br />
+                    1C 0,0307
+                  </code>
+                  <br />
+                  Los porcentajes decimales serán convertidos automáticamente a porcentajes.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="bulk-data">
+                    Datos de Unidades
+                  </Label>
+                  <Textarea
+                    id="bulk-data"
+                    placeholder={`1A\t0,0426
+1B\t0,0213
+1C\t0,0307
+2A\t0,0465`}
+                    value={bulkCreateData}
+                    onChange={(e) => setBulkCreateData(e.target.value)}
+                    rows={10}
+                    className="font-mono text-sm"
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>• Cada línea representa una unidad</p>
+                  <p>• Separa el número de unidad del porcentaje con tabulación o espacios múltiples</p>
+                  <p>• Los porcentajes decimales (ej: 0,0426) serán convertidos a porcentajes (4.26%)</p>
+                  <p>• Las líneas vacías serán ignoradas</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBulkCreateDialogOpen(false)
+                    setBulkCreateData('')
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleBulkCreateUnits}
+                  disabled={bulkCreating || !bulkCreateData.trim()}
+                >
+                  {bulkCreating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Creando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Crear Unidades
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nueva Unidad
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
             <DialogHeader>
               <DialogTitle>Crear Nueva Unidad</DialogTitle>
               <DialogDescription>
@@ -513,8 +746,9 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
               </Button>
               <Button onClick={handleCreateUnit}>Crear Unidad</Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="border rounded-lg">

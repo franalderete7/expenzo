@@ -29,13 +29,16 @@ export async function POST(request: NextRequest) {
     const adminClient = getAdminClient()
 
     // First, find or create the monthly expense summary for this period
-    let { data: monthlySummary, error: summaryError } = await adminClient
+    const result = await adminClient
       .from('monthly_expense_summaries')
       .select('id, total_expenses, property_id, admin_id')
       .eq('property_id', property_id)
       .eq('period_year', year)
       .eq('period_month', month)
       .single()
+
+    let monthlySummary = result.data
+    const summaryError = result.error
 
     if (summaryError && summaryError.code !== 'PGRST116') {
       console.error('Error finding monthly summary:', summaryError)
@@ -84,6 +87,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Use the new summary directly instead of reassigning
       monthlySummary = newSummary
       console.log(`Created monthly summary ${newSummary.id} for ${year}-${month}`)
     }

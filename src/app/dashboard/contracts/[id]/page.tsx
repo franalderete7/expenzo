@@ -1,19 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Navbar } from '@/components/Navbar'
-import { DynamicSidebar } from '@/components/DynamicSidebar'
 import { toast } from 'sonner'
+import { Toaster } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { PropertyProvider } from '@/contexts/PropertyContext'
 
 export default function ContractDetailPage() {
   const params = useParams()
   const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string)
-  const router = useRouter()
 
   const getFrequencyLabel = (frequency: string) => {
     switch (frequency) {
@@ -54,6 +53,15 @@ export default function ContractDetailPage() {
   const [contract, setContract] = useState<Contract | null>(null)
   const [rents, setRents] = useState<Rent[]>([])
   const [loading, setLoading] = useState(false)
+
+  const handleBack = () => {
+    try {
+      window.history.back()
+    } catch {
+      // Fallback to navigate to dashboard
+      window.location.href = '/dashboard'
+    }
+  }
 
   const fetchContract = async () => {
     try {
@@ -112,10 +120,8 @@ export default function ContractDetailPage() {
 
   return (
     <PropertyProvider>
-      <div className="min-h-screen bg-background">
-        <Navbar />
+      <Navbar />
         <div className="flex">
-          <DynamicSidebar />
           <main className="flex-1 p-6 space-y-6">
             <div className="rounded-xl p-5 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 border">
               <div className="flex items-center justify-between mb-4">
@@ -123,7 +129,7 @@ export default function ContractDetailPage() {
                   <h1 className="text-3xl font-extrabold tracking-tight">Unidad {contract.unit?.unit_number}</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => router.back()}>Volver</Button>
+                  <Button variant="outline" onClick={handleBack}>Volver</Button>
                   <Button onClick={handleRecalculate} disabled={loading}>{loading ? 'Calculando...' : 'Calcular alquileres'}</Button>
                 </div>
               </div>
@@ -180,9 +186,10 @@ export default function ContractDetailPage() {
                 </TableBody>
               </Table>
             </div>
-          </main>
-        </div>
+        </main>
       </div>
+
+      <Toaster />
     </PropertyProvider>
   )
 }

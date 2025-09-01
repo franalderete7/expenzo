@@ -136,7 +136,7 @@ export default function UnitDetailPage() {
   const handleBack = () => {
     try {
       window.history.back()
-    } catch (error) {
+    } catch {
       // Fallback to navigate to dashboard
       window.location.href = '/dashboard'
     }
@@ -194,10 +194,9 @@ export default function UnitDetailPage() {
 
   return (
     <PropertyProvider>
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex">
-          <main className="flex-1 p-6 space-y-6">
+      <Navbar />
+      <div className="flex">
+        <main className="flex-1 p-6 space-y-6">
             {loading ? (
               <div className="flex items-center justify-center h-64">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -230,13 +229,13 @@ export default function UnitDetailPage() {
               <div className="rounded-xl p-6 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 border">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="p-4 rounded-lg bg-background/60 border">
-                                      <div className="flex items-center gap-2 mb-2">
-                    <Home className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Estado</span>
-                  </div>
-                  <Badge variant={getStatusBadgeVariant(unit?.status)} className="text-sm">
-                    {getStatusText(unit?.status)}
-                  </Badge>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Home className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Estado</span>
+                    </div>
+                    <Badge variant={getStatusBadgeVariant(unit?.status)} className="text-sm">
+                      {getStatusText(unit?.status)}
+                    </Badge>
                   </div>
 
                   <div className="p-4 rounded-lg bg-background/60 border">
@@ -269,9 +268,9 @@ export default function UnitDetailPage() {
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">Creada</span>
                     </div>
-                                      <div className="font-semibold">
-                    {unit?.created_at ? new Date(unit.created_at).toLocaleDateString('es-ES') : ''}
-                  </div>
+                    <div className="font-semibold">
+                      {unit?.created_at ? new Date(unit.created_at).toLocaleDateString('es-ES') : ''}
+                    </div>
                   </div>
               </div>
             </div>
@@ -393,8 +392,7 @@ export default function UnitDetailPage() {
               </div>
             </div>
             )}
-          </main>
-        </div>
+        </main>
       </div>
 
       {/* Contract Detail Modal */}
@@ -403,7 +401,7 @@ export default function UnitDetailPage() {
         onOpenChange={setContractDetailModalOpen}
         contractId={selectedContractId}
       />
-      
+
       <Toaster />
     </PropertyProvider>
   )
