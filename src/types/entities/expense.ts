@@ -20,7 +20,7 @@ export interface Expense {
 export interface ExpenseFormData {
   property_id: number
   expense_type: string
-  amount: number
+  amount: number | string
   date: string
   description?: string
 }

@@ -120,8 +120,19 @@ export async function POST(
       return NextResponse.json({ message: 'No periods to calculate' })
     }
 
-    // Fetch ICL values for required range
-    const { data: icls } = await supabaseWithToken
+    // Fetch ICL values for required range (use admin client since ICL data should be global)
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    const { data: icls } = await adminClient
       .from('icl_values')
       .select('period_year, period_month, icl_value')
       .gte('period_year', startYear)

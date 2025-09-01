@@ -17,6 +17,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Calculator, DollarSign, Building, User } from 'lucide-react'
 import { toast } from 'sonner'
@@ -40,6 +46,8 @@ export function LiquidacionesTable() {
   const [data, setData] = useState<LiquidacionItem[]>([])
   const [loading, setLoading] = useState(false)
   const [calculating, setCalculating] = useState(false)
+  const [openExpenseReceipt, setOpenExpenseReceipt] = useState<number | null>(null)
+  const [openRentReceipt, setOpenRentReceipt] = useState<number | null>(null)
 
   // Filters
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString())
@@ -163,14 +171,46 @@ export function LiquidacionesTable() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Liquidaciones</h2>
-        <Button
-          onClick={handleCalculate}
-          disabled={calculating}
-          className="flex items-center gap-2"
-        >
-          <Calculator className="h-4 w-4" />
-          {calculating ? 'Calculando...' : 'Calcular Gastos'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                const { data: { session } } = await supabase.auth.getSession()
+                if (!session || !selectedProperty) return
+                const res = await fetch('/api/liquidaciones/send-receipts', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    property_id: selectedProperty.id,
+                    year: parseInt(filterYear),
+                    month: parseInt(filterMonth)
+                  })
+                })
+                if (!res.ok) {
+                  const j = await res.json()
+                  throw new Error(j.error || 'Error enviando recibos')
+                }
+                toast.success('Recibos enviados por email')
+              } catch (e) {
+                toast.error((e as Error).message)
+              }
+            }}
+          >
+            Enviar recibos por email
+          </Button>
+          <Button
+            onClick={handleCalculate}
+            disabled={calculating}
+            className="flex items-center gap-2"
+          >
+            <Calculator className="h-4 w-4" />
+            {calculating ? 'Calculando...' : 'Calcular Gastos'}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -245,18 +285,20 @@ export function LiquidacionesTable() {
                   Alquiler
                 </div>
               </TableHead>
+              <TableHead>Recibo de gastos</TableHead>
+              <TableHead>Recibo de alquiler</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 </TableCell>
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">No hay liquidaciones para este período</p>
                   <Button onClick={handleCalculate} disabled={calculating}>
@@ -313,12 +355,85 @@ export function LiquidacionesTable() {
                       '-'
                     )}
                   </TableCell>
+                  <TableCell>
+                    {item.expense_due ? (
+                      <Button size="sm" variant="outline" onClick={() => setOpenExpenseReceipt(item.unit_id)}>Ver</Button>
+                    ) : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {item.role === 'tenant' && item.rent_due ? (
+                      <Button size="sm" variant="outline" onClick={() => setOpenRentReceipt(item.unit_id)}>Ver</Button>
+                    ) : '-'}
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Expense Receipt Modal */}
+      <Dialog open={openExpenseReceipt !== null} onOpenChange={(o) => !o && setOpenExpenseReceipt(null)}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Recibo de gastos</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const row = data.find(d => d.unit_id === openExpenseReceipt)
+            if (!row) return null
+            const monthName = new Date(0, parseInt(filterMonth) - 1).toLocaleString('es-ES', { month: 'long' })
+            return (
+              <div className="space-y-4 p-2">
+                <div className="text-sm text-muted-foreground">Periodo: {monthName} {filterYear}</div>
+                <div className="border rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-bold">Unidad {row.unit_number}</div>
+                      <div className="text-sm">{row.resident_name || 'Sin residente'}</div>
+                      {row.resident_email && <div className="text-xs text-muted-foreground">{row.resident_email}</div>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm">% gastos: {row.expense_percentage ?? 0}%</div>
+                      <div className="text-base font-semibold">Total: ${row.expense_due?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Rent Receipt Modal */}
+      <Dialog open={openRentReceipt !== null} onOpenChange={(o) => !o && setOpenRentReceipt(null)}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Recibo de alquiler</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const row = data.find(d => d.unit_id === openRentReceipt)
+            if (!row) return null
+            const monthName = new Date(0, parseInt(filterMonth) - 1).toLocaleString('es-ES', { month: 'long' })
+            return (
+              <div className="space-y-4 p-2">
+                <div className="text-sm text-muted-foreground">Periodo: {monthName} {filterYear}</div>
+                <div className="border rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-bold">Unidad {row.unit_number}</div>
+                      <div className="text-sm">{row.resident_name || 'Sin residente'}</div>
+                      {row.resident_email && <div className="text-xs text-muted-foreground">{row.resident_email}</div>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-semibold">Total: ${row.rent_due?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

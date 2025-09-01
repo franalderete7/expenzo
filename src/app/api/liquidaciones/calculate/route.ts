@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
 
     const adminClient = getAdminClient()
 
-    // First, find the monthly expense summary for this period
-    const { data: monthlySummary, error: summaryError } = await adminClient
+    // First, find or create the monthly expense summary for this period
+    let { data: monthlySummary, error: summaryError } = await adminClient
       .from('monthly_expense_summaries')
       .select('id, total_expenses, property_id, admin_id')
       .eq('property_id', property_id)
@@ -45,14 +45,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // If no monthly summary exists for this period, create one with $0 expenses
     if (!monthlySummary) {
-      return NextResponse.json(
-        { error: 'No monthly expense summary found for this period. Please create expenses first.' },
-        { status: 404 }
-      )
+      console.log(`Creating new monthly summary for ${year}-${month} with $0 expenses`)
+
+      // Get the admin_id from the property
+      const { data: property, error: propertyError } = await adminClient
+        .from('properties')
+        .select('admin_id')
+        .eq('id', property_id)
+        .single()
+
+      if (propertyError || !property) {
+        console.error('Error fetching property admin_id:', propertyError)
+        return NextResponse.json(
+          { error: 'Error fetching property information' },
+          { status: 500 }
+        )
+      }
+
+      const { data: newSummary, error: createError } = await adminClient
+        .from('monthly_expense_summaries')
+        .insert({
+          property_id,
+          period_year: year,
+          period_month: month,
+          total_expenses: 0,
+          admin_id: property.admin_id
+        })
+        .select('id, total_expenses, property_id, admin_id')
+        .single()
+
+      if (createError) {
+        console.error('Error creating monthly summary:', createError)
+        return NextResponse.json(
+          { error: 'Error creating monthly expense summary' },
+          { status: 500 }
+        )
+      }
+
+      monthlySummary = newSummary
+      console.log(`Created monthly summary ${newSummary.id} for ${year}-${month}`)
     }
 
-    // Check if allocations already exist for this period
+    // Delete existing allocations for this period if they exist
     const { data: existingAllocations, error: checkError } = await adminClient
       .from('expense_allocations')
       .select('id, unit_id')
@@ -66,11 +102,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // If allocations exist, delete them first
     if (existingAllocations && existingAllocations.length > 0) {
-      return NextResponse.json(
-        { error: 'Expense allocations already exist for this period. Delete existing allocations first if you want to recalculate.' },
-        { status: 409 }
-      )
+      console.log(`Deleting ${existingAllocations.length} existing allocations for period ${year}-${month}`)
+      const { error: deleteError } = await adminClient
+        .from('expense_allocations')
+        .delete()
+        .eq('monthly_expense_summary_id', monthlySummary.id)
+
+      if (deleteError) {
+        console.error('Error deleting existing allocations:', deleteError)
+        return NextResponse.json(
+          { error: 'Error deleting existing allocations' },
+          { status: 500 }
+        )
+      }
+      console.log(`Successfully deleted ${existingAllocations.length} existing allocations`)
     }
 
     // Get all units for the property
@@ -128,13 +175,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Expense allocations calculated successfully for ${units.length} units`,
+      message: `Expense allocations ${existingAllocations && existingAllocations.length > 0 ? 'recalculated' : 'calculated'} successfully for ${units.length} units${monthlySummary.total_expenses === 0 ? ' (no expenses for this period)' : ''}`,
       data: {
         monthly_summary_id: monthlySummary.id,
         total_expenses: monthlySummary.total_expenses,
         total_allocated: totalAllocated,
         units_count: units.length,
-        allocations_created: insertedAllocations?.length || 0
+        allocations_created: insertedAllocations?.length || 0,
+        was_recalculation: !!(existingAllocations && existingAllocations.length > 0)
       }
     })
 

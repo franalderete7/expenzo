@@ -41,7 +41,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign, Filter, Download, FileSpreadsheet } from 'lucide-react'
+import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign, Filter, Download, FileSpreadsheet, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useProperty } from '@/contexts/PropertyContext'
@@ -77,7 +77,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   const [formData, setFormData] = useState<ExpenseFormData>({
     property_id: 0,
     expense_type: '',
-    amount: 0,
+    amount: '', // Start with empty string for better UX
     date: '',
     description: ''
   })
@@ -150,7 +150,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
     setFormData({
       property_id: selectedProperty?.id || 0,
       expense_type: '',
-      amount: 0,
+      amount: '',
       date: '',
       description: ''
     })
@@ -166,7 +166,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       toast.error('El tipo de gasto es requerido')
       return
     }
-    if (!formData.amount || formData.amount <= 0) {
+    const amountValue = formData.amount === '' ? 0 : parseFloat(formData.amount.toString())
+    if (!formData.amount || amountValue <= 0) {
       toast.error('El monto debe ser mayor a 0')
       return
     }
@@ -192,7 +193,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
         body: JSON.stringify({
           property_id: selectedProperty.id,
           expense_type: formData.expense_type.trim(),
-          amount: formData.amount,
+          amount: amountValue,
           date: formData.date,
           description: formData.description?.trim() || null
         })
@@ -220,8 +221,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
     setFormData({
       property_id: expense.property_id,
       expense_type: expense.expense_type,
-      amount: expense.amount,
-      date: expense.date,
+      amount: expense.amount.toString(),
+      date: expense.date, // Already in YYYY-MM-DD format for HTML5 date input
       description: expense.description || ''
     })
     setEditDialogOpen(true)
@@ -234,7 +235,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       toast.error('El tipo de gasto es requerido')
       return
     }
-    if (!formData.amount || formData.amount <= 0) {
+    const amountValue = formData.amount === '' ? 0 : parseFloat(formData.amount.toString())
+    if (!formData.amount || amountValue <= 0) {
       toast.error('El monto debe ser mayor a 0')
       return
     }
@@ -259,7 +261,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
         },
         body: JSON.stringify({
           expense_type: formData.expense_type.trim(),
-          amount: formData.amount,
+          amount: amountValue,
           date: formData.date,
           description: formData.description?.trim() || null
         })
@@ -483,7 +485,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
                   min="0"
                   step="0.01"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   className="col-span-3"
                   placeholder="0.00"
                 />
@@ -492,13 +494,21 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
                 <Label htmlFor="date" className="text-right">
                   Fecha
                 </Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="col-span-3"
-                />
+                <div className="col-span-3 relative">
+                  <Input
+                    id="date"
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    placeholder=""
+                    className="pr-10"
+                  />
+                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  {formData.date === '' && (
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none text-sm">
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">
@@ -748,21 +758,31 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
                 min="0"
                 step="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 className="col-span-3"
+                placeholder="0.00"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_date" className="text-right">
                 Fecha
               </Label>
-              <Input
-                id="edit_date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="col-span-3"
-              />
+              <div className="col-span-3 relative">
+                <Input
+                  id="edit_date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  placeholder=""
+                  className="pr-10"
+                />
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                {formData.date === '' && (
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none text-sm">
+                    DD/MM/YYYY
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_description" className="text-right">
