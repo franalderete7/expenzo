@@ -125,7 +125,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     rent_increase_frequency: 'quarterly',
     status: 'active',
     currency: 'ARS',
-    icl_index_type: 'ICL'
+    icl_index_type: 'ICL' as 'ICL' | 'IPC' | 'Average'
   })
 
   useImperativeHandle(ref, () => ({
@@ -304,7 +304,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       rent_increase_frequency: 'quarterly',
       status: 'active',
       currency: 'ARS',
-      icl_index_type: 'ICL'
+      icl_index_type: 'ICL' as 'ICL' | 'IPC' | 'Average'
     })
     setSelectedUnitResident('')
   }
@@ -727,6 +727,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ICL">ICL (Índice de Contratos de Locación)</SelectItem>
+                    <SelectItem value="IPC">IPC (Índice de Precios al Consumidor)</SelectItem>
+                    <SelectItem value="Average">Promedio (ICL + IPC)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1052,6 +1054,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ICL">ICL (Índice de Contratos de Locación)</SelectItem>
+                  <SelectItem value="IPC">IPC (Índice de Precios al Consumidor)</SelectItem>
+                  <SelectItem value="Average">Promedio (ICL + IPC)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -27,9 +27,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Edit, Trash2, Building, MapPin } from 'lucide-react'
+import { Plus, Edit, Trash2, Building, MapPin, TrendingUp } from 'lucide-react'
 import { Property, PropertyFormData } from '@/types/database'
 import { supabase } from '@/lib/supabase'
+import { IndicesModal } from './IndicesModal'
 
 interface PropertiesManagerProps {
   onPropertySelect?: (propertyId: number) => void
@@ -41,6 +42,7 @@ export function PropertiesManager({ onPropertySelect }: PropertiesManagerProps =
   const [error, setError] = useState<string | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingProperty, setEditingProperty] = useState<Property | null>(null)
+  const [isIndicesModalOpen, setIsIndicesModalOpen] = useState(false)
   const [formData, setFormData] = useState<PropertyFormData>({
     name: '',
     street_address: '',
@@ -230,16 +232,27 @@ export function PropertiesManager({ onPropertySelect }: PropertiesManagerProps =
           </p>
         </div>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-          setIsCreateDialogOpen(open)
-          if (!open) resetForm()
-        }}>
-          <DialogTrigger asChild>
-            <Button size="lg" className="shadow-sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva Propiedad
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-3">
+          <Button
+            size="lg"
+            variant="outline"
+            className="shadow-sm"
+            onClick={() => setIsIndicesModalOpen(true)}
+          >
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Índices
+          </Button>
+
+          <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+            setIsCreateDialogOpen(open)
+            if (!open) resetForm()
+          }}>
+            <DialogTrigger asChild>
+              <Button size="lg" className="shadow-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva Propiedad
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[500px] border-0 shadow-2xl">
             <DialogHeader className="space-y-3">
               <div className="flex items-center space-x-3">
@@ -338,6 +351,7 @@ export function PropertiesManager({ onPropertySelect }: PropertiesManagerProps =
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {error && (
@@ -460,6 +474,11 @@ export function PropertiesManager({ onPropertySelect }: PropertiesManagerProps =
           </Button>
         </div>
       )}
+
+      <IndicesModal
+        open={isIndicesModalOpen}
+        onOpenChange={setIsIndicesModalOpen}
+      />
     </div>
   )
 }

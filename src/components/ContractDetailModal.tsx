@@ -71,6 +71,19 @@ export function ContractDetailModal({ open, onOpenChange, contractId }: Contract
     }
   }
 
+  const getIndexTypeDisplay = (indexType: string) => {
+    switch (indexType) {
+      case 'ICL':
+        return 'ICL (Índice de Contratos de Locación)'
+      case 'IPC':
+        return 'IPC (Índice de Precios al Consumidor)'
+      case 'Average':
+        return 'Promedio (ICL + IPC)'
+      default:
+        return indexType
+    }
+  }
+
   const fetchContract = async () => {
     if (!contractId) return
 
@@ -198,7 +211,7 @@ export function ContractDetailModal({ open, onOpenChange, contractId }: Contract
               </div>
               <div className="p-3 rounded-lg bg-background/60 border">
                 <div className="text-muted-foreground">Moneda / Índice</div>
-                <div className="font-semibold text-base">{contract.currency || 'ARS'} · {contract.icl_index_type || 'ICL'}</div>
+                <div className="font-semibold text-base">{contract.currency || 'ARS'} · {getIndexTypeDisplay(contract.icl_index_type || 'ICL')}</div>
               </div>
             </div>
           </div>
@@ -213,8 +226,8 @@ export function ContractDetailModal({ open, onOpenChange, contractId }: Contract
                   <TableHead>Mes</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Base</TableHead>
-                  <TableHead>ICL Base</TableHead>
-                  <TableHead>ICL Ajuste</TableHead>
+                  <TableHead>Índice Base</TableHead>
+                  <TableHead>Índice Ajuste</TableHead>
                   <TableHead>Factor</TableHead>
                   <TableHead>Ajustado</TableHead>
                 </TableRow>

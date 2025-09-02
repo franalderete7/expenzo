@@ -120,7 +120,7 @@ export async function POST(
       return NextResponse.json({ message: 'No periods to calculate' })
     }
 
-    // Fetch ICL values for required range (use admin client since ICL data should be global)
+    // Fetch index values based on contract's icl_index_type (use admin client since index data should be global)
     const adminClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -132,19 +132,51 @@ export async function POST(
       }
     )
 
-    const { data: icls } = await adminClient
-      .from('icl_values')
-      .select('period_year, period_month, icl_value')
-      .gte('period_year', startYear)
-      .lte('period_year', cutoffYear)
+    const indexType = contract.icl_index_type || 'ICL'
 
+    // Fetch ICL values if needed (for ICL or Average calculations)
     const iclMap = new Map<string, number>()
-    for (const r of icls || []) {
-      iclMap.set(`${r.period_year}-${r.period_month}`, Number(r.icl_value))
+    if (indexType === 'ICL' || indexType === 'Average') {
+      const { data: icls } = await adminClient
+        .from('icl_values')
+        .select('period_year, period_month, icl_value')
+        .gte('period_year', startYear)
+        .lte('period_year', cutoffYear)
+
+      for (const r of icls || []) {
+        iclMap.set(`${r.period_year}-${r.period_month}`, Number(r.icl_value))
+      }
+    }
+
+    // Fetch IPC values if needed (for IPC or Average calculations)
+    const ipcMap = new Map<string, number>()
+    if (indexType === 'IPC' || indexType === 'Average') {
+      const { data: ipcs } = await adminClient
+        .from('ipc_values')
+        .select('period_year, period_month, ipc_value')
+        .gte('period_year', startYear)
+        .lte('period_year', cutoffYear)
+
+      for (const r of ipcs || []) {
+        ipcMap.set(`${r.period_year}-${r.period_month}`, Number(r.ipc_value))
+      }
     }
 
     const baseKey = `${startYear}-${startMonth}`
+
+    // Get base values for the contract start period
     const baseICL = iclMap.get(baseKey)
+    const baseIPC = ipcMap.get(baseKey)
+
+    // Determine base index value based on type
+    let baseIndexValue: number | null = null
+    if (indexType === 'ICL' && baseICL) {
+      baseIndexValue = baseICL
+    } else if (indexType === 'IPC' && baseIPC) {
+      baseIndexValue = baseIPC
+    } else if (indexType === 'Average' && baseICL && baseIPC) {
+      baseIndexValue = (baseICL + baseIPC) / 2
+    }
 
     // Get existing rents to preserve paid data and avoid duplicates
     const { data: existingRents } = await supabaseWithToken
@@ -197,19 +229,47 @@ export async function POST(
 
       if (i === 0) {
         amount = baseAmount
-      } else if (isAdjustmentMonth(i, freq) && baseICL) {
-        const adjICL = iclMap.get(key)
-        if (adjICL && baseICL) {
-          icl_adjustment_factor = adjICL / baseICL
-          amount = Math.round(baseAmount * icl_adjustment_factor * 100) / 100
-          base_icl_value = baseICL
-          adjustment_icl_value = adjICL
+      } else if (isAdjustmentMonth(i, freq) && baseIndexValue) {
+        // Calculate adjustment based on index type
+        let adjustmentValue: number | null = null
+        let currentBaseValue = baseIndexValue
+
+        if (indexType === 'ICL') {
+          adjustmentValue = iclMap.get(key) ?? null
+          if (adjustmentValue && baseICL) {
+            icl_adjustment_factor = adjustmentValue / baseICL
+            base_icl_value = baseICL
+            adjustment_icl_value = adjustmentValue
+          }
+        } else if (indexType === 'IPC') {
+          adjustmentValue = ipcMap.get(key) ?? null
+          if (adjustmentValue && baseIPC) {
+            icl_adjustment_factor = adjustmentValue / baseIPC
+            base_icl_value = baseIPC  // Using this field to store IPC values for compatibility
+            adjustment_icl_value = adjustmentValue
+          }
+        } else if (indexType === 'Average') {
+          const adjICL = iclMap.get(key) ?? null
+          const adjIPC = ipcMap.get(key) ?? null
+          if (adjICL && adjIPC && baseICL && baseIPC) {
+            const avgBase = (baseICL + baseIPC) / 2
+            const avgAdjustment = (adjICL + adjIPC) / 2
+            icl_adjustment_factor = avgAdjustment / avgBase
+            base_icl_value = avgBase  // Store the average base value
+            adjustment_icl_value = avgAdjustment  // Store the average adjustment value
+            adjustmentValue = avgAdjustment
+            currentBaseValue = avgBase
+          }
+        }
+
+        if (adjustmentValue && currentBaseValue) {
+          amount = Math.round(baseAmount * (adjustmentValue / currentBaseValue) * 100) / 100
           is_adjusted = true
           adjustment_period_month = m
           adjustment_period_year = y
           lastAdjustedAmount = amount
         } else {
-          // missing ICL for target month, keep lastAdjustedAmount
+          // missing index values for target month, keep lastAdjustedAmount
           amount = lastAdjustedAmount
         }
       } else {
