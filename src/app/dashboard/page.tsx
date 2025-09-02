@@ -162,6 +162,21 @@ function DashboardInner() {
 
 // Main component with context provider
 export default function Dashboard() {
+  // Log dashboard page load
+  useEffect(() => {
+    console.log('📊 [DASHBOARD PAGE] Page loaded')
+    console.log('📊 [DASHBOARD PAGE] Current URL:', window.location.href)
+    console.log('📊 [DASHBOARD PAGE] Current origin:', window.location.origin)
+    console.log('📊 [DASHBOARD PAGE] Search params:', window.location.search)
+
+    // Check for OAuth-related URL parameters
+    const urlParams = new URLSearchParams(window.location.search)
+    const hasAuthParams = urlParams.has('code') || urlParams.has('access_token') || urlParams.has('refresh_token') || urlParams.has('error')
+    console.log('📊 [DASHBOARD PAGE] Has OAuth params:', hasAuthParams)
+    if (hasAuthParams) {
+      console.log('📊 [DASHBOARD PAGE] OAuth params:', Object.fromEntries(urlParams.entries()))
+    }
+  }, [])
   return (
     <PropertyProvider>
       <DashboardInner />

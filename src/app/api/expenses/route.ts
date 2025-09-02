@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
         )
       `, { count: 'exact' })
       .eq('property_id', propertyId)
+      .eq('admin_id', adminRecord.id) // Filter expenses by the admin who owns them
 
     if (month && year) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
@@ -173,6 +174,7 @@ export async function GET(request: NextRequest) {
           .from('expenses')
           .select('amount')
           .eq('property_id', propertyId)
+          .eq('admin_id', adminRecord.id) // Filter by admin
           .gte('date', startDate.toISOString().split('T')[0])
           .lte('date', endDate.toISOString().split('T')[0])
 
@@ -378,6 +380,7 @@ export async function POST(request: NextRequest) {
         .from('expenses')
         .select('amount')
         .eq('monthly_expense_summary_id', monthlySummaryId)
+        .eq('admin_id', adminRecord.id) // Filter by admin for consistency
 
       if (sumError) {
         console.error('❌ Error querying expenses for summary recalc on create:', sumError)

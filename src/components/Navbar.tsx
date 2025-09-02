@@ -15,9 +15,16 @@ import {
 import { LogOut, User, RefreshCw } from 'lucide-react'
 
 function GoogleSignInButton({ onClick }: { onClick: () => void }) {
+  const handleClick = () => {
+    console.log('🔘 [NAVBAR] Google sign-in button clicked')
+    console.log('🔘 [NAVBAR] Current location:', window.location.href)
+    console.log('🔘 [NAVBAR] Current origin:', window.location.origin)
+    onClick()
+  }
+
   return (
     <Button
-      onClick={onClick}
+      onClick={handleClick}
       className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 hover:border-gray-400 px-4 py-2 h-auto font-normal cursor-pointer shadow-sm"
     >
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">

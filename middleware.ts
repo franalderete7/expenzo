@@ -2,6 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  console.log('🛡️ [MIDDLEWARE] Request:', request.method, request.url)
+  console.log('🛡️ [MIDDLEWARE] Pathname:', request.nextUrl.pathname)
+  console.log('🛡️ [MIDDLEWARE] Search params:', Object.fromEntries(request.nextUrl.searchParams.entries()))
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -31,8 +35,11 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  console.log('🛡️ [MIDDLEWARE] User authenticated:', !!user, user?.id ? `(${user.id})` : '')
+
   // Protect dashboard routes
   if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+    console.log('🛡️ [MIDDLEWARE] Redirecting unauthenticated user from dashboard to home')
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
@@ -40,7 +47,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from home page (only if not already redirecting)
   if (request.nextUrl.pathname === '/' && user && !request.nextUrl.searchParams.has('redirected')) {
-    console.log('Middleware: Redirecting authenticated user to dashboard', user.id)
+    console.log('🛡️ [MIDDLEWARE] Redirecting authenticated user to dashboard', user.id)
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     url.searchParams.set('redirected', 'true') // Prevent redirect loops
@@ -49,13 +56,15 @@ export async function middleware(request: NextRequest) {
 
   // Log for debugging
   if (request.nextUrl.pathname === '/') {
-    console.log('Middleware: Home page accessed', {
+    console.log('🛡️ [MIDDLEWARE] Home page accessed', {
       hasUser: !!user,
       userId: user?.id,
-      hasRedirectedParam: request.nextUrl.searchParams.has('redirected')
+      hasRedirectedParam: request.nextUrl.searchParams.has('redirected'),
+      allParams: Object.fromEntries(request.nextUrl.searchParams.entries())
     })
   }
 
+  console.log('🛡️ [MIDDLEWARE] Allowing request to proceed')
   return supabaseResponse
 }
 

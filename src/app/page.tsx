@@ -105,6 +105,28 @@ export default function Home() {
   const [showFeatures, setShowFeatures] = useState(false)
   const [showRedirectMessage, setShowRedirectMessage] = useState(false)
 
+  // Log page load and URL information
+  useEffect(() => {
+    console.log('🏠 [HOME PAGE] Page loaded')
+    console.log('🏠 [HOME PAGE] Current URL:', window.location.href)
+    console.log('🏠 [HOME PAGE] Current origin:', window.location.origin)
+    console.log('🏠 [HOME PAGE] Search params:', window.location.search)
+    console.log('🏠 [HOME PAGE] Hash:', window.location.hash)
+
+    // Check for OAuth-related URL parameters
+    const urlParams = new URLSearchParams(window.location.search)
+    const hasAuthParams = urlParams.has('code') || urlParams.has('access_token') || urlParams.has('refresh_token') || urlParams.has('error')
+    console.log('🏠 [HOME PAGE] Has OAuth params:', hasAuthParams)
+    if (hasAuthParams) {
+      console.log('🏠 [HOME PAGE] OAuth params:', Object.fromEntries(urlParams.entries()))
+    }
+
+    // Log environment info
+    console.log('🏠 [HOME PAGE] Environment:', process.env.NODE_ENV)
+    console.log('🏠 [HOME PAGE] Is localhost:', window.location.origin.includes('localhost'))
+    console.log('🏠 [HOME PAGE] Is production:', window.location.origin.includes('vercel.app'))
+  }, [])
+
   // Redirect authenticated users to dashboard (fallback to middleware)
   useEffect(() => {
     if (!loading && user && !window.location.search.includes('redirected')) {
