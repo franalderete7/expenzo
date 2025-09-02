@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     // Get residents with pagination - strictly scope by property_id and admin_id
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
 
     const { data: residents, error, count } = await supabaseWithToken

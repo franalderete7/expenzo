@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year')
     const expenseType = searchParams.get('expense_type')
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
 
     if (!propertyId) {
@@ -177,6 +177,7 @@ export async function GET(request: NextRequest) {
           .eq('admin_id', adminRecord.id) // Filter by admin
           .gte('date', startDate.toISOString().split('T')[0])
           .lte('date', endDate.toISOString().split('T')[0])
+          .limit(1000) // Ensure we get all expenses for the month, not just the paginated ones
 
         if (fullMonthError) {
           console.log('⚠️ Fallback full-month sum query error:', fullMonthError)
@@ -381,6 +382,7 @@ export async function POST(request: NextRequest) {
         .select('amount')
         .eq('monthly_expense_summary_id', monthlySummaryId)
         .eq('admin_id', adminRecord.id) // Filter by admin for consistency
+        .limit(1000) // Ensure we get all expenses for the summary
 
       if (sumError) {
         console.error('❌ Error querying expenses for summary recalc on create:', sumError)

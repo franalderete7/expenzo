@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const propertyId = searchParams.get('property_id')
     const status = searchParams.get('status')
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
 
     // Build query - only show units from user's properties

@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const propertyId = searchParams.get('property_id')
     const unitId = searchParams.get('unit_id')
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
 
     // If filtering by unit_id, we don't require property_id
