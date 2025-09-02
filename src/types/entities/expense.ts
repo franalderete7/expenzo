@@ -2,7 +2,8 @@
 export interface Expense {
   id: number
   property_id: number
-  expense_type: string
+  expense_type?: string // Keep for backward compatibility
+  category?: string // New field for expense category
   amount: number
   date: string
   description?: string
@@ -19,7 +20,8 @@ export interface Expense {
 
 export interface ExpenseFormData {
   property_id: number
-  expense_type: string
+  expense_type: string // Keep for backward compatibility
+  category?: string // New field for expense category
   amount: number | string
   date: string
   description?: string

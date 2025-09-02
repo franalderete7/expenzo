@@ -873,13 +873,21 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleEditUnit(unit)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditUnit(unit)
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>

@@ -41,11 +41,11 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign, Filter, Download, FileSpreadsheet, Calendar } from 'lucide-react'
+import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign, Filter, Download, FileSpreadsheet, Calendar, Settings, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useProperty } from '@/contexts/PropertyContext'
-import { Expense, ExpenseFormData } from '@/types/entities'
+import { Expense, ExpenseFormData, ExpenseCategory } from '@/types/entities'
 import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 
@@ -53,7 +53,7 @@ interface ExpensesTableRef {
   openCreateDialog: () => void
 }
 
-type SortField = 'expense_type' | 'amount' | 'date' | 'description' | 'created_at'
+type SortField = 'expense_type' | 'category' | 'amount' | 'date' | 'description' | 'created_at'
 type SortDirection = 'asc' | 'desc'
 
 export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
@@ -80,14 +80,117 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   const [honorariosAmount, setHonorariosAmount] = useState<number>(0)
   const [calculatingHonorarios, setCalculatingHonorarios] = useState(false)
 
+  // Expense categories state
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
+  const [showCategoryManager, setShowCategoryManager] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [loadingCategories, setLoadingCategories] = useState(false)
+
   // Form data
   const [formData, setFormData] = useState<ExpenseFormData>({
     property_id: 0,
-    expense_type: '',
+    expense_type: '', // Keep for backward compatibility
+    category: '', // New field for category selection
     amount: '', // Start with empty string for better UX
     date: '',
     description: ''
   })
+
+  // Fetch expense categories
+  const fetchExpenseCategories = useCallback(async () => {
+    try {
+      setLoadingCategories(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/expense-categories', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Error fetching categories')
+      }
+
+      const data = await response.json()
+      const categories = data.categories || []
+      setExpenseCategories(Array.isArray(categories) ? categories : [])
+    } catch (error) {
+      console.error('Error fetching expense categories:', error)
+      toast.error('Error loading categories')
+    } finally {
+      setLoadingCategories(false)
+    }
+  }, [])
+
+  // Add new expense category
+  const addExpenseCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error('El nombre de la categoría es requerido')
+      return
+    }
+
+    if (expenseCategories && expenseCategories.some(cat => cat.name && cat.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
+      toast.error('Esta categoría ya existe')
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/expense-categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          name: newCategoryName.trim()
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error creating category')
+      }
+
+      const { category } = await response.json()
+      setExpenseCategories(prev => Array.isArray(prev) ? [...prev, category] : [category])
+      setNewCategoryName('')
+      toast.success('Categoría agregada')
+    } catch (error) {
+      console.error('Error adding expense category:', error)
+      toast.error(error instanceof Error ? error.message : 'Error adding category')
+    }
+  }
+
+  // Delete expense category
+  const deleteExpenseCategory = async (categoryId: number) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch(`/api/expense-categories/${categoryId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error deleting category')
+      }
+
+      setExpenseCategories(prev => Array.isArray(prev) ? prev.filter(cat => cat.id !== categoryId) : [])
+      toast.success('Categoría eliminada')
+    } catch (error) {
+      console.error('Error deleting expense category:', error)
+      toast.error(error instanceof Error ? error.message : 'Error deleting category')
+    }
+  }
 
   useImperativeHandle(ref, () => ({
     openCreateDialog: () => setCreateDialogOpen(true)
@@ -140,6 +243,11 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
     }
   }, [selectedProperty, filterMonth, filterYear])
 
+  // Fetch expense categories on mount
+  useEffect(() => {
+    fetchExpenseCategories()
+  }, [fetchExpenseCategories])
+
   useEffect(() => {
     fetchExpenses()
   }, [fetchExpenses])
@@ -156,7 +264,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   const resetForm = () => {
     setFormData({
       property_id: selectedProperty?.id || 0,
-      expense_type: '',
+      expense_type: '', // Keep for backward compatibility
+      category: '',
       amount: '',
       date: '',
       description: ''
@@ -169,8 +278,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       return
     }
 
-    if (!formData.expense_type.trim()) {
-      toast.error('El tipo de gasto es requerido')
+    if (!formData.category?.trim()) {
+      toast.error('La categoría de gasto es requerida')
       return
     }
     const amountValue = formData.amount === '' ? 0 : parseFloat(formData.amount.toString())
@@ -199,7 +308,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
         },
         body: JSON.stringify({
           property_id: selectedProperty.id,
-          expense_type: formData.expense_type.trim(),
+          category: formData.category.trim(),
           amount: amountValue,
           date: formData.date,
           description: formData.description?.trim() || null
@@ -231,7 +340,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
     setEditingExpense(expense)
     setFormData({
       property_id: expense.property_id,
-      expense_type: expense.expense_type,
+      expense_type: expense.expense_type || '', // Keep for backward compatibility
+      category: expense.category || expense.expense_type || '',
       amount: expense.amount.toString(),
       date: expense.date, // Already in YYYY-MM-DD format for HTML5 date input
       description: expense.description || ''
@@ -242,8 +352,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   const handleUpdateExpense = async () => {
     if (!editingExpense) return
 
-    if (!formData.expense_type.trim()) {
-      toast.error('El tipo de gasto es requerido')
+    if (!formData.category?.trim()) {
+      toast.error('La categoría de gasto es requerida')
       return
     }
     const amountValue = formData.amount === '' ? 0 : parseFloat(formData.amount.toString())
@@ -271,7 +381,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          expense_type: formData.expense_type.trim(),
+          category: formData.category.trim(),
           amount: amountValue,
           date: formData.date,
           description: formData.description?.trim() || null
@@ -345,9 +455,17 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   }
 
   // Client-side sorting
-  const sortedExpenses = [...expenses].sort((a, b) => {
-    const aValue = a[sortField as keyof Expense]
-    const bValue = b[sortField as keyof Expense]
+  const sortedExpenses = (expenses && Array.isArray(expenses) ? [...expenses] : []).sort((a, b) => {
+    if (!a || !b) return 0
+
+    let aValue: string | number | undefined = a[sortField as keyof Expense] as string | number | undefined
+    let bValue: string | number | undefined = b[sortField as keyof Expense] as string | number | undefined
+
+    // Special handling for category field - fall back to expense_type if category is null
+    if (sortField === 'category') {
+      aValue = a.category || a.expense_type || ''
+      bValue = b.category || b.expense_type || ''
+    }
 
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
@@ -360,6 +478,9 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
 
   const getExpenseTypeBadgeVariant = (type: string) => {
     const colors = ['default', 'secondary', 'destructive', 'outline'] as const
+    if (!type || typeof type !== 'string') {
+      return colors[0] // Return default if type is undefined/null/invalid
+    }
     return colors[Math.abs(type.length) % colors.length]
   }
 
@@ -382,20 +503,20 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
   }
 
   const prepareExportData = () => {
-    const exportData = sortedExpenses.map(expense => ({
-      'Tipo': expense.expense_type,
-      'Monto': expense.amount,
-      'Fecha': new Date(expense.date).toLocaleDateString('es-ES'),
+    const exportData = (sortedExpenses || []).filter(expense => expense).map(expense => ({
+      'Tipo': expense.category || expense.expense_type || 'Otros',
+      'Monto': expense.amount || 0,
+      'Fecha': expense.date ? new Date(expense.date).toLocaleDateString('es-ES') : '',
       'Descripción': expense.description || ''
     }))
 
     // Add total row
-    const totalAmount = sortedExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+    const totalAmount = (sortedExpenses || []).reduce((sum, expense) => sum + (expense?.amount || 0), 0)
     exportData.push({
       'Tipo': 'TOTAL',
       'Monto': totalAmount,
       'Fecha': '',
-      'Descripción': `Total de ${sortedExpenses.length} gastos`
+      'Descripción': `Total de ${(sortedExpenses || []).length} gastos`
     })
 
     return exportData
@@ -487,8 +608,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
 
       // Exclude any existing "Honorarios Administrador" expenses from the total
       const honorariosExpenses = data.expenses?.filter((expense: Expense) =>
-        expense.expense_type?.toLowerCase().includes('honorarios') ||
-        expense.expense_type?.toLowerCase().includes('administrador')
+        (expense.category || expense.expense_type || '').toLowerCase().includes('honorarios') ||
+        (expense.category || expense.expense_type || '').toLowerCase().includes('administrador')
       ) || []
 
       const honorariosTotal = honorariosExpenses.reduce((sum: number, expense: Expense) =>
@@ -524,7 +645,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
       // Create the expense
       const expenseData = {
         property_id: selectedProperty.id,
-        expense_type: 'Honorarios Administrador',
+        category: 'Honorarios Administrador',
         amount: honorariosAmount,
         date: `${filterYear}-${filterMonth.padStart(2, '0')}-01`,
         description: `Honorarios calculados automáticamente (${honorariosPercentage}% de gastos totales: $${honorariosTotal.toLocaleString('es-ES')})`
@@ -678,15 +799,40 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="expense_type" className="text-right">
-                  Tipo
+                  Categoría *
                 </Label>
-                <Input
-                  id="expense_type"
-                  value={formData.expense_type}
-                  onChange={(e) => setFormData({ ...formData, expense_type: e.target.value })}
-                  className="col-span-3"
-                  placeholder="Ej: Mantenimiento, Servicios, etc."
-                />
+                <div className="col-span-3 flex gap-2">
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Seleccionar categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {expenseCategories && expenseCategories.length > 0 ? (
+                        expenseCategories.map((category) => (
+                          <SelectItem key={category.id} value={category.name}>
+                            {category.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="" disabled>
+                          Cargando categorías...
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCategoryManager(true)}
+                    className="px-3"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="amount" className="text-right">
@@ -826,11 +972,11 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
             <TableRow>
               <TableHead
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('expense_type')}
+                onClick={() => handleSort('category')}
               >
                 <div className="flex items-center">
-                  Tipo
-                  {getSortIcon('expense_type')}
+                  Categoría
+                  {getSortIcon('category')}
                 </div>
               </TableHead>
               <TableHead
@@ -885,8 +1031,8 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
               sortedExpenses.map((expense) => (
                 <TableRow key={expense.id}>
                   <TableCell className="font-medium">
-                    <Badge variant={getExpenseTypeBadgeVariant(expense.expense_type)}>
-                      {expense.expense_type}
+                    <Badge variant={getExpenseTypeBadgeVariant(expense.category || expense.expense_type || 'Otros')}>
+                      {expense.category || expense.expense_type || 'Otros'}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium text-green-600">
@@ -917,7 +1063,7 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Eliminar Gasto</AlertDialogTitle>
                             <AlertDialogDescription>
-                              ¿Estás seguro de que quieres eliminar el gasto &quot;{expense.expense_type}&quot; de ${expense.amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}?
+                              ¿Estás seguro de que quieres eliminar el gasto &quot;{expense.category || expense.expense_type || 'Sin categoría'}&quot; de ${expense.amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}?
                               Esta acción no se puede deshacer.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
@@ -953,14 +1099,40 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_expense_type" className="text-right">
-                Tipo
+                Categoría *
               </Label>
-              <Input
-                id="edit_expense_type"
-                value={formData.expense_type}
-                onChange={(e) => setFormData({ ...formData, expense_type: e.target.value })}
-                className="col-span-3"
-              />
+              <div className="col-span-3 flex gap-2">
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Seleccionar categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseCategories && expenseCategories.length > 0 ? (
+                      expenseCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
+                        Cargando categorías...
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCategoryManager(true)}
+                  className="px-3"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_amount" className="text-right">
@@ -1015,6 +1187,72 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleUpdateExpense} disabled={loading}>
               {loading ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Management Modal */}
+      <Dialog open={showCategoryManager} onOpenChange={setShowCategoryManager}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Gestionar Categorías</DialogTitle>
+            <DialogDescription>
+              Agrega, elimina o administra las categorías de gastos disponibles.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Add new category */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nueva categoría..."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addExpenseCategory()}
+              />
+              <Button
+                onClick={addExpenseCategory}
+                disabled={!newCategoryName.trim() || loadingCategories}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Agregar
+              </Button>
+            </div>
+
+            {/* Existing categories */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Categorías existentes:</Label>
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {expenseCategories && expenseCategories.length > 0 ? (
+                  expenseCategories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between p-2 bg-muted rounded-md"
+                    >
+                      <span className="text-sm">{category.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteExpenseCategory(category.id)}
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 text-center text-muted-foreground">
+                    {loadingCategories ? 'Cargando categorías...' : 'No hay categorías disponibles'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCategoryManager(false)}>
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>

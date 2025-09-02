@@ -51,14 +51,58 @@ interface ContractsTableRef {
   openCreateDialog: () => void
 }
 
+interface ContractWithJoins {
+  unit_id: number
+  tenant_id: number
+  units: {
+    id: number
+    unit_number: string
+  }
+  residents: {
+    id: number
+    name: string
+    email: string
+  }
+}
+
+interface UnitResidentOption {
+  unitId: number
+  residentId: number
+  unitNumber: string
+  residentName: string
+  residentEmail?: string
+  displayText: string
+}
+
+interface ResidentWithUnit {
+  id: number
+  name: string
+  email?: string
+  unit_id: number
+  units: {
+    id: number
+    unit_number: string
+    property_id: number
+  }
+}
+
+interface ActiveContractRow {
+  tenant_id: number
+  unit_id: number
+  units: {
+    id: number
+    property_id: number
+  }
+}
+
 type SortField = 'start_date' | 'end_date' | 'initial_rent_amount' | 'status' | 'created_at'
 type SortDirection = 'asc' | 'desc'
 
 export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
   const { selectedProperty } = useProperty()
   const [contracts, setContracts] = useState<Contract[]>([])
-  const [units, setUnits] = useState<Array<{ id: number; unit_number: string }>>([])
-  const [residents, setResidents] = useState<Array<{ id: number; name: string; email?: string }>>([])
+  const [unitResidentOptions, setUnitResidentOptions] = useState<UnitResidentOption[]>([])
+  const [selectedUnitResident, setSelectedUnitResident] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -77,6 +121,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     start_date: '',
     end_date: '',
     initial_rent_amount: undefined,
+    deposit_amount: '',
     rent_increase_frequency: 'quarterly',
     status: 'active',
     currency: 'ARS',
@@ -126,27 +171,88 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      // Fetch units
-      const { data: unitsData, error: unitsError } = await supabase
-        .from('units')
-        .select('id, unit_number')
-        .eq('property_id', selectedProperty.id)
-
-      if (unitsError) throw unitsError
-      setUnits(unitsData || [])
-
-      // Fetch residents
-      const { data: residentsData, error: residentsError } = await supabase
+      // 1) Fetch tenants with an assigned unit in this property
+      const { data: residentsWithUnits, error: residentsError } = await supabase
         .from('residents')
-        .select('id, name, email')
+        .select(`
+          id,
+          name,
+          email,
+          unit_id,
+          units!inner (
+            id,
+            unit_number,
+            property_id
+          )
+        `)
         .eq('property_id', selectedProperty.id)
+        .eq('role', 'tenant')
+        .not('unit_id', 'is', null)
 
       if (residentsError) throw residentsError
-      setResidents(residentsData || [])
+
+      // 2) Fetch active contracts in this property to exclude those tenants/units
+      const { data: activeContracts, error: activeContractsError } = await supabase
+        .from('contracts')
+        .select(`
+          tenant_id,
+          unit_id,
+          units!inner (
+            id,
+            property_id
+          )
+        `)
+        .eq('status', 'active')
+        .eq('units.property_id', selectedProperty.id)
+
+      if (activeContractsError) throw activeContractsError
+
+      const activeTenantIds = new Set((activeContracts as unknown as ActiveContractRow[] || []).map((c) => c.tenant_id))
+      const activeUnitIds = new Set((activeContracts as unknown as ActiveContractRow[] || []).map((c) => c.unit_id))
+
+      // 3) Filter to available pairs: tenant has unit assigned and neither tenant nor unit is in an active contract
+      const available = ((residentsWithUnits as unknown as ResidentWithUnit[]) || []).filter((r) => {
+        const unit = r.units
+        return unit && !activeTenantIds.has(r.id) && !activeUnitIds.has(unit.id)
+      })
+
+      // 4) Build combined options sorted by resident name
+      const options: UnitResidentOption[] = available
+        .map((r) => ({
+          unitId: r.units.id,
+          residentId: r.id,
+          unitNumber: r.units.unit_number,
+          residentName: r.name,
+          residentEmail: r.email,
+          displayText: `${r.name} — Unidad ${r.units.unit_number}`
+        }))
+        .sort((a, b) => a.residentName.localeCompare(b.residentName))
+
+      // If editing, ensure current (unit, tenant) pair is present even if already active
+      if (editingContract && editingContract.unit_id && editingContract.tenant_id) {
+        const exists = options.some(
+          (o) => o.unitId === editingContract.unit_id && o.residentId === editingContract.tenant_id
+        )
+        if (!exists) {
+          const displayText = `${editingContract.tenant?.name || `Inquilino ${editingContract.tenant_id}`} — Unidad ${editingContract.unit?.unit_number || editingContract.unit_id}`
+          options.push({
+            unitId: editingContract.unit_id,
+            residentId: editingContract.tenant_id,
+            unitNumber: editingContract.unit?.unit_number?.toString() || String(editingContract.unit_id),
+            residentName: editingContract.tenant?.name || String(editingContract.tenant_id),
+            residentEmail: editingContract.tenant?.email,
+            displayText
+          })
+        }
+      }
+
+      setUnitResidentOptions(options)
     } catch (error) {
       console.error('Error fetching units/residents:', error)
     }
   }, [selectedProperty])
+
+
 
   useEffect(() => {
     if (selectedProperty) {
@@ -194,11 +300,13 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       start_date: '',
       end_date: '',
       initial_rent_amount: undefined,
+      deposit_amount: '',
       rent_increase_frequency: 'quarterly',
       status: 'active',
       currency: 'ARS',
       icl_index_type: 'ICL'
     })
+    setSelectedUnitResident('')
   }
 
   const handleCreateContract = async () => {
@@ -207,12 +315,15 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       return
     }
 
-    if (!formData.unit_id) {
-      toast.error('La unidad es requerida')
+    if (!selectedUnitResident) {
+      toast.error('La unidad e inquilino son requeridos')
       return
     }
-    if (!formData.tenant_id) {
-      toast.error('El inquilino es requerido')
+
+    // Parse the combined selection
+    const [unitId, tenantId] = selectedUnitResident.split('-').map(Number)
+    if (!unitId || !tenantId) {
+      toast.error('Selección inválida')
       return
     }
     if (!formData.start_date) {
@@ -244,11 +355,12 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
         },
         body: JSON.stringify({
           property_id: selectedProperty.id,
-          unit_id: formData.unit_id,
-          tenant_id: formData.tenant_id,
+          unit_id: unitId,
+          tenant_id: tenantId,
           start_date: formData.start_date,
           end_date: formData.end_date,
           initial_rent_amount: formData.initial_rent_amount,
+          deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount.toString()) : undefined,
           rent_increase_frequency: formData.rent_increase_frequency,
           status: formData.status,
           currency: formData.currency,
@@ -281,23 +393,29 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       start_date: contract.start_date,
       end_date: contract.end_date,
       initial_rent_amount: contract.initial_rent_amount || undefined,
+      deposit_amount: contract.deposit_amount?.toString() || '',
       rent_increase_frequency: contract.rent_increase_frequency,
       status: contract.status,
       currency: contract.currency || 'ARS',
       icl_index_type: contract.icl_index_type || 'ICL'
     })
+    // Set the combined selection for editing
+    setSelectedUnitResident(`${contract.unit_id}-${contract.tenant_id}`)
     setEditDialogOpen(true)
   }
 
   const handleUpdateContract = async () => {
     if (!editingContract) return
 
-    if (!formData.unit_id) {
-      toast.error('La unidad es requerida')
+    if (!selectedUnitResident) {
+      toast.error('La unidad e inquilino son requeridos')
       return
     }
-    if (!formData.tenant_id) {
-      toast.error('El inquilino es requerido')
+
+    // Parse the combined selection
+    const [unitId, tenantId] = selectedUnitResident.split('-').map(Number)
+    if (!unitId || !tenantId) {
+      toast.error('Selección inválida')
       return
     }
     if (!formData.start_date) {
@@ -328,11 +446,12 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          unit_id: formData.unit_id,
-          tenant_id: formData.tenant_id,
+          unit_id: unitId,
+          tenant_id: tenantId,
           start_date: formData.start_date,
           end_date: formData.end_date,
           initial_rent_amount: formData.initial_rent_amount,
+          deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount.toString()) : undefined,
           rent_increase_frequency: formData.rent_increase_frequency,
           status: formData.status,
           currency: formData.currency,
@@ -462,37 +581,18 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="unit_id" className="text-right">Unidad *</Label>
+                <Label htmlFor="unit_resident" className="text-right">Inquilino *</Label>
                 <Select
-                  value={formData.unit_id.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, unit_id: parseInt(value) })}
+                  value={selectedUnitResident}
+                  onValueChange={(value) => setSelectedUnitResident(value)}
                 >
                   <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Seleccionar unidad" />
+                    <SelectValue placeholder="Seleccionar inquilino (con unidad asignada)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {units.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id.toString()}>
-                        Unidad {unit.unit_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="tenant_id" className="text-right">Inquilino *</Label>
-                <Select
-                  value={formData.tenant_id.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, tenant_id: parseInt(value) })}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Seleccionar inquilino" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {residents.map((resident) => (
-                      <SelectItem key={resident.id} value={resident.id.toString()}>
-                        {resident.name} {resident.email && `(${resident.email})`}
+                    {unitResidentOptions.map((option) => (
+                      <SelectItem key={`${option.unitId}-${option.residentId}`} value={`${option.unitId}-${option.residentId}`}>
+                        {option.displayText}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -534,6 +634,26 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                     setFormData({
                       ...formData,
                       initial_rent_amount: value === '' ? undefined : parseFloat(value) || undefined
+                    })
+                  }}
+                  className="col-span-3"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="deposit_amount" className="text-right">Depósito</Label>
+                <Input
+                  id="deposit_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.deposit_amount || ''}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setFormData({
+                      ...formData,
+                      deposit_amount: value
                     })
                   }}
                   className="col-span-3"
@@ -654,6 +774,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                   {getSortIcon('initial_rent_amount')}
                 </div>
               </TableHead>
+              <TableHead>Depósito</TableHead>
               <TableHead>Frecuencia</TableHead>
               <TableHead
                 className="cursor-pointer hover:bg-muted/50"
@@ -670,13 +791,13 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 </TableCell>
               </TableRow>
             ) : sortedContracts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">No hay contratos registrados</p>
                   <Button onClick={() => setCreateDialogOpen(true)}>
@@ -707,6 +828,9 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                   </TableCell>
                   <TableCell className="font-medium text-green-600">
                     {contract.currency || 'USD'} {contract.initial_rent_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell className="font-medium text-blue-600">
+                    {contract.deposit_amount ? `${contract.currency || 'USD'} ${contract.deposit_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}` : '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {getFrequencyLabel(contract.rent_increase_frequency)}
@@ -770,37 +894,18 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit_unit_id" className="text-right">Unidad *</Label>
+              <Label htmlFor="edit_unit_resident" className="text-right">Inquilino *</Label>
               <Select
-                value={formData.unit_id.toString()}
-                onValueChange={(value) => setFormData({ ...formData, unit_id: parseInt(value) })}
+                value={selectedUnitResident}
+                onValueChange={(value) => setSelectedUnitResident(value)}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Seleccionar unidad" />
+                  <SelectValue placeholder="Seleccionar inquilino (con unidad asignada)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {units.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id.toString()}>
-                      Unidad {unit.unit_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit_tenant_id" className="text-right">Inquilino *</Label>
-              <Select
-                value={formData.tenant_id.toString()}
-                onValueChange={(value) => setFormData({ ...formData, tenant_id: parseInt(value) })}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Seleccionar inquilino" />
-                </SelectTrigger>
-                <SelectContent>
-                  {residents.map((resident) => (
-                    <SelectItem key={resident.id} value={resident.id.toString()}>
-                      {resident.name} {resident.email && `(${resident.email})`}
+                  {unitResidentOptions.map((option) => (
+                    <SelectItem key={`${option.unitId}-${option.residentId}`} value={`${option.unitId}-${option.residentId}`}>
+                      {option.displayText}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -842,6 +947,25 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                   setFormData({
                     ...formData,
                     initial_rent_amount: value === '' ? undefined : parseFloat(value) || undefined
+                  })
+                }}
+                className="col-span-3"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_deposit_amount" className="text-right">Depósito</Label>
+              <Input
+                id="edit_deposit_amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.deposit_amount || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({
+                    ...formData,
+                    deposit_amount: value
                   })
                 }}
                 className="col-span-3"

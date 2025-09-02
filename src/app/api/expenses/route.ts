@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const propertyId = searchParams.get('property_id')
     const month = searchParams.get('month')
     const year = searchParams.get('year')
-    const expenseType = searchParams.get('expense_type')
+    const expenseType = searchParams.get('category') || searchParams.get('expense_type')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
@@ -127,7 +127,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (expenseType) {
-      query = query.eq('expense_type', expenseType)
+      // 'category' is the new field name; maintain backward compat if old data exists
+      query = query.eq('category', expenseType)
     }
 
     const { data: expenses, error, count } = await query
@@ -236,11 +237,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { property_id, expense_type, amount, date, description } = body
+    const { property_id, category, expense_type, amount, date, description } = body
 
-    if (!property_id || !expense_type || !amount || !date) {
+    if (!property_id || !(category || expense_type) || !amount || !date) {
       return NextResponse.json(
-        { error: 'Missing required fields: property_id, expense_type, amount, date' },
+        { error: 'Missing required fields: property_id, category, amount, date' },
         { status: 400 }
       )
     }
@@ -346,14 +347,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`📝 Inserting HONORARIOS expense with monthly_expense_summary_id: ${monthlySummaryId}, type: ${expense_type}, amount: ${amount}`)
+    const finalCategory = category || expense_type
+    console.log(`📝 Inserting expense with monthly_expense_summary_id: ${monthlySummaryId}, category: ${finalCategory}, amount: ${amount}`)
 
     const { data: expense, error } = await supabaseWithToken
       .from('expenses')
       .insert({
         admin_id: adminRecord.id, // INTEGER admins.id
         property_id,
-        expense_type,
+        category: finalCategory,
         amount: parseFloat(amount),
         date,
         description: description || null,

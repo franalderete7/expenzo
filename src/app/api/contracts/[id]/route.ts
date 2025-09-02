@@ -115,6 +115,7 @@ export async function PUT(
       start_date,
       end_date,
       initial_rent_amount,
+      deposit_amount,
       rent_increase_frequency,
       status,
       currency,
@@ -158,6 +159,7 @@ export async function PUT(
       start_date: string
       end_date: string
       initial_rent_amount: number
+      deposit_amount: number | null
       rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
       status: 'active' | 'expired' | 'renewed'
       currency: string | null
@@ -169,6 +171,7 @@ export async function PUT(
     if (start_date !== undefined) updateData.start_date = start_date
     if (end_date !== undefined) updateData.end_date = end_date
     if (initial_rent_amount !== undefined) updateData.initial_rent_amount = parseFloat(initial_rent_amount)
+    if (deposit_amount !== undefined) updateData.deposit_amount = deposit_amount ? parseFloat(deposit_amount) : null
     if (rent_increase_frequency !== undefined) updateData.rent_increase_frequency = rent_increase_frequency
     if (status !== undefined) updateData.status = status
     if (currency !== undefined) updateData.currency = currency || null

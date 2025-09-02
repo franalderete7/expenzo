@@ -114,11 +114,11 @@ export async function PUT(
 
     const { id: expenseId } = await params
     const body = await request.json()
-    const { expense_type, amount, date, description } = body
+    const { category, expense_type, amount, date, description } = body
 
-    if (!expense_type || !amount || !date) {
+    if (!(category || expense_type) || !amount || !date) {
       return NextResponse.json(
-        { error: 'Missing required fields: expense_type, amount, date' },
+        { error: 'Missing required fields: category, amount, date' },
         { status: 400 }
       )
     }
@@ -167,12 +167,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Property not found or access denied' }, { status: 404 })
     }
 
-    console.log(`🔄 Updating HONORARIOS expense ${expenseId} with amount ${amount}, type: ${expense_type}`)
+    const finalCategory = category || expense_type
+    console.log(`🔄 Updating expense ${expenseId} with amount ${amount}, category: ${finalCategory}`)
 
     const { data: updatedExpense, error } = await supabaseWithToken
       .from('expenses')
       .update({
-        expense_type,
+        category: finalCategory,
         amount: parseFloat(amount),
         date,
         description: description || null,
@@ -408,6 +409,7 @@ export async function DELETE(
         property_id,
         amount,
         date,
+        category,
         expense_type,
         properties!inner (
           id,
@@ -433,7 +435,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Property not found or access denied' }, { status: 404 })
     }
 
-    console.log(`🗑️ Deleting HONORARIOS expense ${expenseId}, type: ${existingExpense.expense_type}, amount: ${existingExpense.amount}`)
+    console.log(`🗑️ Deleting expense ${expenseId}, category: ${existingExpense.category || existingExpense.expense_type}, amount: ${existingExpense.amount}`)
 
     const { error } = await supabaseWithToken
       .from('expenses')

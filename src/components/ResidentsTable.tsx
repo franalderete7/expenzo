@@ -141,27 +141,16 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
     if (!selectedProperty) return
 
     try {
-      // Fetch units with their residents to filter out occupied ones
+      // Fetch all units for this property
       const { data, error } = await supabase
         .from('units')
-        .select(`
-          *,
-          residents (
-            id,
-            name
-          )
-        `)
+        .select('*')
         .eq('property_id', selectedProperty.id)
         .order('unit_number')
 
       if (error) throw error
 
-      // Filter to only show units without residents (available units)
-      const availableUnits = (data || []).filter(unit =>
-        !unit.residents || unit.residents.length === 0
-      )
-
-      setUnits(availableUnits)
+      setUnits(data || [])
     } catch (error) {
       console.error('Error fetching units:', error)
       toast.error('Error loading units')
@@ -509,8 +498,12 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
                   <SelectContent>
                     <SelectItem value="none">Sin unidad asignada</SelectItem>
                     {units.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id.toString()}>
-                        Unidad {unit.unit_number}
+                      <SelectItem
+                        key={unit.id}
+                        value={unit.id.toString()}
+                        disabled={unit.status === 'occupied' && unit.id !== formData.unit_id}
+                      >
+                        Unidad {unit.unit_number} {unit.status === 'occupied' && unit.id !== formData.unit_id ? '(Ocupada)' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -781,8 +774,12 @@ export const ResidentsTable = forwardRef<ResidentsTableRef>((props, ref) => {
                 <SelectContent>
                   <SelectItem value="none">Sin unidad asignada</SelectItem>
                   {units.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id.toString()}>
-                      Unidad {unit.unit_number}
+                    <SelectItem
+                      key={unit.id}
+                      value={unit.id.toString()}
+                      disabled={unit.status === 'occupied' && unit.id !== formData.unit_id}
+                    >
+                      Unidad {unit.unit_number} {unit.status === 'occupied' && unit.id !== formData.unit_id ? '(Ocupada)' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

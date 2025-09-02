@@ -6,6 +6,7 @@ export interface Contract {
   start_date: string // Date in YYYY-MM-DD format
   end_date: string // Date in YYYY-MM-DD format
   initial_rent_amount: number
+  deposit_amount?: number
   rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status: 'active' | 'expired' | 'renewed'
   created_at: string
@@ -34,6 +35,7 @@ export interface ContractFormData {
   start_date: string
   end_date: string
   initial_rent_amount: number | undefined
+  deposit_amount?: number | string
   rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status?: 'active' | 'expired' | 'renewed'
   currency?: string
@@ -46,6 +48,7 @@ export interface CreateContractData {
   start_date: string
   end_date: string
   initial_rent_amount: number
+  deposit_amount?: number
   rent_increase_frequency?: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status?: 'active' | 'expired' | 'renewed'
   currency?: string
@@ -58,6 +61,7 @@ export interface UpdateContractData {
   start_date?: string
   end_date?: string
   initial_rent_amount?: number
+  deposit_amount?: number
   rent_increase_frequency?: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status?: 'active' | 'expired' | 'renewed'
   currency?: string
