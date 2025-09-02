@@ -250,7 +250,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     } catch (error) {
       console.error('Error fetching units/residents:', error)
     }
-  }, [selectedProperty])
+  }, [selectedProperty, editingContract])
 
 
 
@@ -259,7 +259,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       fetchContracts()
       fetchUnitsAndResidents()
     }
-  }, [selectedProperty])
+  }, [selectedProperty, editingContract])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -785,6 +785,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                   {getSortIcon('status')}
                 </div>
               </TableHead>
+              <TableHead className="w-40">Progreso</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -836,9 +837,22 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                     {getFrequencyLabel(contract.rent_increase_frequency)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(contract.status)}>
-                      {getStatusLabel(contract.status)}
-                    </Badge>
+                    {(() => {
+                      const start = new Date(contract.start_date).getTime()
+                      const end = new Date(contract.end_date).getTime()
+                      const now = Date.now()
+                      const clampedNow = Math.min(Math.max(now, start), end)
+                      const total = Math.max(end - start, 1)
+                      const progress = Math.round(((clampedNow - start) / total) * 100)
+                      return (
+                        <div className="w-full">
+                          <div className="h-2 w-full bg-muted rounded">
+                            <div className="h-2 bg-primary rounded" style={{ width: `${progress}%` }} />
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">{progress}%</div>
+                        </div>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">

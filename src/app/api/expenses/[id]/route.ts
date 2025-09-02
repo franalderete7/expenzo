@@ -367,7 +367,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('[DELETE /api/expenses/:id] Request received')
     const authHeader = request.headers.get('authorization')
+    console.log('[DELETE] Auth header present:', Boolean(authHeader))
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -384,11 +386,13 @@ export async function DELETE(
     )
 
     const { data: { user }, error: userError } = await supabaseWithToken.auth.getUser()
+    console.log('[DELETE] getUser error:', userError ? userError.message : 'none')
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id: expenseId } = await params
+    console.log('[DELETE] expenseId:', expenseId)
 
     // Get user's admin record
     const { data: adminRecord, error: adminError } = await supabaseWithToken
@@ -397,47 +401,40 @@ export async function DELETE(
       .eq('user_id', user.id)
       .single()
 
+    console.log('[DELETE] admin lookup error:', adminError ? adminError.message : 'none', 'adminRecord:', adminRecord)
     if (adminError || !adminRecord) {
       return NextResponse.json({ error: 'Admin record not found' }, { status: 404 })
     }
 
-    // First verify the expense exists and belongs to user's property
-    const { data: existingExpense, error: fetchError } = await supabaseWithToken
+    // First verify the expense exists and belongs to user's property (bypass RLS to avoid false 404)
+    const adminClient = getAdminClient()
+    const { data: existingExpense, error: fetchError } = await adminClient
       .from('expenses')
-      .select(`
-        id,
-        property_id,
-        amount,
-        date,
-        category,
-        expense_type,
-        properties!inner (
-          id,
-          admin_id
-        )
-      `)
+      .select('id, property_id, amount, date, category, monthly_expense_summary_id')
       .eq('id', expenseId)
-      .single()
+      .maybeSingle()
 
+    console.log('[DELETE] fetch expense error:', fetchError ? fetchError.message : 'none', 'existingExpense:', existingExpense)
     if (fetchError || !existingExpense) {
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
 
-    // Verify user owns the property
-    const { data: property, error: propertyError } = await supabaseWithToken
+    // Verify user owns the property (check property.admin_id matches current admin user_id)
+    const { data: propRow, error: propErr } = await adminClient
       .from('properties')
-      .select('id')
+      .select('id, admin_id')
       .eq('id', existingExpense.property_id)
-      .eq('admin_id', adminRecord.user_id)
-      .single()
+      .maybeSingle()
 
-    if (propertyError || !property) {
-      return NextResponse.json({ error: 'Property not found or access denied' }, { status: 404 })
+    console.log('[DELETE] property lookup error:', propErr ? propErr.message : 'none', 'propRow:', propRow, 'expected admin_id:', adminRecord.user_id)
+    if (propErr || !propRow || propRow.admin_id !== adminRecord.user_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    console.log(`🗑️ Deleting expense ${expenseId}, category: ${existingExpense.category || existingExpense.expense_type}, amount: ${existingExpense.amount}`)
+    console.log(`🗑️ Deleting expense ${expenseId}, category: ${existingExpense.category}, amount: ${existingExpense.amount}`)
 
-    const { error } = await supabaseWithToken
+    // Perform deletion with admin client to bypass RLS safely after ownership check
+    const { error } = await adminClient
       .from('expenses')
       .delete()
       .eq('id', expenseId)
@@ -457,7 +454,6 @@ export async function DELETE(
     console.log(`🔍 Looking for summary: property_id=${existingExpense.property_id}, period_year=${periodYear}, period_month=${periodMonth}, admin_id=${adminRecord.user_id}`)
 
     // Use admin client to query summary (same as CREATE route) to avoid RLS issues
-    const adminClient = getAdminClient()
     const { data: summary, error: summaryError } = await adminClient
       .from('monthly_expense_summaries')
       .select('id, total_expenses')

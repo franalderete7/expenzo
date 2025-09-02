@@ -92,7 +92,7 @@ export interface UnitFormData {
 
 export interface ExpenseFormData {
   property_id: number
-  expense_type: string
+  category: string
   amount: number
   date: string
   description?: string
