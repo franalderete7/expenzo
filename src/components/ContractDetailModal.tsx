@@ -26,8 +26,11 @@ type Contract = {
   start_date: string
   end_date: string
   initial_rent_amount: number
+  deposit_amount?: number
   rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   currency?: string
+  currency_deposit?: string
+  description?: string
   icl_index_type?: string
   unit?: { unit_number: string }
   tenant?: { name: string }
@@ -210,9 +213,23 @@ export function ContractDetailModal({ open, onOpenChange, contractId }: Contract
                 <div className="font-semibold text-base">{getFrequencyLabel(contract.rent_increase_frequency)}</div>
               </div>
               <div className="p-3 rounded-lg bg-background/60 border">
-                <div className="text-muted-foreground">Moneda / Índice</div>
+                <div className="text-muted-foreground">Moneda Contrato / Índice</div>
                 <div className="font-semibold text-base">{contract.currency || 'ARS'} · {getIndexTypeDisplay(contract.icl_index_type || 'ICL')}</div>
               </div>
+              {contract.deposit_amount && (
+                <div className="p-3 rounded-lg bg-background/60 border">
+                  <div className="text-muted-foreground">Depósito</div>
+                  <div className="font-semibold text-base">
+                    {contract.deposit_amount.toLocaleString('es-AR')} {contract.currency_deposit || contract.currency || 'ARS'}
+                  </div>
+                </div>
+              )}
+              {contract.description && (
+                <div className="p-3 rounded-lg bg-background/60 border">
+                  <div className="text-muted-foreground">Descripción</div>
+                  <div className="font-semibold text-base">{contract.description}</div>
+                </div>
+              )}
             </div>
           </div>
 

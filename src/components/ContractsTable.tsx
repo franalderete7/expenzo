@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowUp, ArrowDown, Plus, Edit, Trash2, DollarSign } from 'lucide-react'
@@ -125,6 +126,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
     rent_increase_frequency: 'quarterly',
     status: 'active',
     currency: 'ARS',
+    currency_deposit: 'ARS',
+    description: '',
     icl_index_type: 'ICL' as 'ICL' | 'IPC' | 'Average'
   })
 
@@ -304,6 +307,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       rent_increase_frequency: 'quarterly',
       status: 'active',
       currency: 'ARS',
+      currency_deposit: 'ARS',
+      description: '',
       icl_index_type: 'ICL' as 'ICL' | 'IPC' | 'Average'
     })
     setSelectedUnitResident('')
@@ -364,6 +369,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           rent_increase_frequency: formData.rent_increase_frequency,
           status: formData.status,
           currency: formData.currency,
+          currency_deposit: formData.currency_deposit,
+          description: formData.description,
           icl_index_type: formData.icl_index_type
         })
       })
@@ -397,6 +404,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
       rent_increase_frequency: contract.rent_increase_frequency,
       status: contract.status,
       currency: contract.currency || 'ARS',
+      currency_deposit: contract.currency_deposit || 'ARS',
+      description: contract.description || '',
       icl_index_type: contract.icl_index_type || 'ICL'
     })
     // Set the combined selection for editing
@@ -455,6 +464,8 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           rent_increase_frequency: formData.rent_increase_frequency,
           status: formData.status,
           currency: formData.currency,
+          currency_deposit: formData.currency_deposit,
+          description: formData.description,
           icl_index_type: formData.icl_index_type
         })
       })
@@ -642,6 +653,22 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="currency" className="text-right">Moneda Contrato</Label>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Seleccionar moneda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
+                    <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="deposit_amount" className="text-right">Depósito</Label>
                 <Input
                   id="deposit_amount"
@@ -659,6 +686,22 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                   className="col-span-3"
                   placeholder="0.00"
                 />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="currency_deposit" className="text-right">Moneda Depósito</Label>
+                <Select
+                  value={formData.currency_deposit}
+                  onValueChange={(value) => setFormData({ ...formData, currency_deposit: value })}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Seleccionar moneda depósito" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
+                    <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
@@ -701,19 +744,15 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="currency" className="text-right">Moneda</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Seleccionar moneda" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
-                    <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="description" className="text-right">Descripción</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="col-span-3"
+                  placeholder="Agrega notas adicionales sobre el contrato..."
+                  rows={3}
+                />
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
@@ -821,10 +860,10 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                     )}
                   </TableCell>
                   <TableCell className="font-medium text-green-600">
-                    {contract.currency || 'USD'} {contract.initial_rent_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                    {contract.currency || 'ARS'} {contract.initial_rent_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell className="font-medium text-blue-600">
-                    {contract.deposit_amount ? `${contract.currency || 'USD'} ${contract.deposit_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}` : '-'}
+                    {contract.deposit_amount ? `${contract.currency_deposit || contract.currency || 'ARS'} ${contract.deposit_amount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}` : '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {getFrequencyLabel(contract.rent_increase_frequency)}
@@ -961,6 +1000,22 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_currency" className="text-right">Moneda Contrato</Label>
+              <Select
+                value={formData.currency}
+                onValueChange={(value) => setFormData({ ...formData, currency: value })}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar moneda" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
+                  <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_deposit_amount" className="text-right">Depósito</Label>
               <Input
                 id="edit_deposit_amount"
@@ -977,6 +1032,22 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                 }}
                 className="col-span-3"
               />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_currency_deposit" className="text-right">Moneda Depósito</Label>
+              <Select
+                value={formData.currency_deposit}
+                onValueChange={(value) => setFormData({ ...formData, currency_deposit: value })}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar moneda depósito" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
+                  <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
@@ -1019,19 +1090,15 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit_currency" className="text-right">Moneda</Label>
-              <Select
-                value={formData.currency}
-                onValueChange={(value) => setFormData({ ...formData, currency: value })}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Seleccionar moneda" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ARS">ARS (Peso Argentino)</SelectItem>
-                  <SelectItem value="USD">USD (Dólar Estadounidense)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit_description" className="text-right">Descripción</Label>
+              <Textarea
+                id="edit_description"
+                value={formData.description || ''}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="col-span-3"
+                placeholder="Agrega notas adicionales sobre el contrato..."
+                rows={3}
+              />
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">

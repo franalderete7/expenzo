@@ -163,6 +163,8 @@ export async function POST(request: NextRequest) {
       rent_increase_frequency = 'quarterly',
       status = 'active',
       currency,
+      currency_deposit,
+      description,
       icl_index_type
     } = body
 
@@ -222,6 +224,8 @@ export async function POST(request: NextRequest) {
         rent_increase_frequency,
         status,
         currency: currency || null,
+        currency_deposit: currency_deposit || null,
+        description: description || null,
         icl_index_type: icl_index_type || 'ICL'
       })
       .select(`

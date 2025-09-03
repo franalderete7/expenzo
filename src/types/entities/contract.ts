@@ -12,6 +12,8 @@ export interface Contract {
   created_at: string
   updated_at: string
   currency?: string
+  currency_deposit?: string
+  description?: string
   icl_index_type?: string
   // Joined data
   unit?: {
@@ -39,6 +41,8 @@ export interface ContractFormData {
   rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status?: 'active' | 'expired' | 'renewed'
   currency?: string
+  currency_deposit?: string
+  description?: string
   icl_index_type?: string
 }
 
@@ -52,6 +56,8 @@ export interface CreateContractData {
   rent_increase_frequency?: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status?: 'active' | 'expired' | 'renewed'
   currency?: string
+  currency_deposit?: string
+  description?: string
   icl_index_type?: string
 }
 
@@ -65,5 +71,7 @@ export interface UpdateContractData {
   rent_increase_frequency?: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
   status?: 'active' | 'expired' | 'renewed'
   currency?: string
+  currency_deposit?: string
+  description?: string
   rent_increase_index?: string
 }

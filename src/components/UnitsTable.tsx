@@ -533,7 +533,10 @@ const UnitsTableComponent = forwardRef<UnitsTableRef>((props, ref) => {
             Gestiona las unidades de {selectedProperty.name}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">
+            <span className="font-medium">Total % Expensas:</span> {units.reduce((sum, unit) => sum + (unit.expense_percentage || 0), 0).toFixed(1)}%
+          </div>
           <Dialog open={bulkCreateDialogOpen} onOpenChange={setBulkCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" onClick={() => setBulkCreateData('')}>

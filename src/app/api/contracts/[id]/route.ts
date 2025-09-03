@@ -119,6 +119,8 @@ export async function PUT(
       rent_increase_frequency,
       status,
       currency,
+      currency_deposit,
+      description,
       icl_index_type
     } = body
 
@@ -163,6 +165,8 @@ export async function PUT(
       rent_increase_frequency: 'monthly' | 'quarterly' | 'semi-annually' | 'annually'
       status: 'active' | 'expired' | 'renewed'
       currency: string | null
+      currency_deposit: string | null
+      description: string | null
       icl_index_type: string | null
       updated_at: string
     }> = {}
@@ -175,6 +179,8 @@ export async function PUT(
     if (rent_increase_frequency !== undefined) updateData.rent_increase_frequency = rent_increase_frequency
     if (status !== undefined) updateData.status = status
     if (currency !== undefined) updateData.currency = currency || null
+    if (currency_deposit !== undefined) updateData.currency_deposit = currency_deposit || null
+    if (description !== undefined) updateData.description = description || null
     if (icl_index_type !== undefined) updateData.icl_index_type = icl_index_type || 'ICL'
 
     updateData.updated_at = new Date().toISOString()
