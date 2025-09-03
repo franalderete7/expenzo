@@ -778,15 +778,6 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
               </TableHead>
               <TableHead>Depósito</TableHead>
               <TableHead>Frecuencia</TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('status')}
-              >
-                <div className="flex items-center">
-                  Estado
-                  {getSortIcon('status')}
-                </div>
-              </TableHead>
               <TableHead className="w-40">Progreso</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -794,13 +785,13 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 </TableCell>
               </TableRow>
             ) : sortedContracts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">No hay contratos registrados</p>
                   <Button onClick={() => setCreateDialogOpen(true)}>
@@ -819,7 +810,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                     {contract.end_date}
                   </TableCell>
                   <TableCell className="font-medium">
-                    Unidad {contract.unit?.unit_number}
+                    {contract.unit?.unit_number}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {contract.tenant?.name}
@@ -875,7 +866,7 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Eliminar Contrato</AlertDialogTitle>
                             <AlertDialogDescription>
-                              ¿Estás seguro de que quieres eliminar el contrato de {contract.tenant?.name} para la Unidad {contract.unit?.unit_number}?
+                              ¿Estás seguro de que quieres eliminar el contrato de {contract.tenant?.name} para la unidad {contract.unit?.unit_number}?
                               Esta acción no se puede deshacer.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
