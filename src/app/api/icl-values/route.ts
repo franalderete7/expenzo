@@ -92,8 +92,7 @@ export async function POST(request: NextRequest) {
       .insert({
         period_month,
         period_year,
-        icl_value: parseFloat(icl_value),
-        admin_id: user.id
+        icl_value: parseFloat(icl_value)
       })
       .select()
       .single()

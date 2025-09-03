@@ -122,6 +122,31 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
 
   const handleCreateICL = async () => {
     try {
+      // Validate form data
+      if (!iclFormData.period_month || !iclFormData.period_year || !iclFormData.icl_value) {
+        toast.error('Todos los campos son requeridos')
+        return
+      }
+
+      const month = parseInt(iclFormData.period_month)
+      const year = parseInt(iclFormData.period_year)
+      const value = parseFloat(iclFormData.icl_value)
+
+      if (isNaN(month) || month < 1 || month > 12) {
+        toast.error('Mes inválido')
+        return
+      }
+
+      if (isNaN(year) || year < 2020 || year > 2030) {
+        toast.error('Año inválido (2020-2030)')
+        return
+      }
+
+      if (isNaN(value) || value < 0) {
+        toast.error('Valor ICL inválido')
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         toast.error('No active session')
@@ -135,9 +160,9 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          period_month: parseInt(iclFormData.period_month),
-          period_year: parseInt(iclFormData.period_year),
-          icl_value: parseFloat(iclFormData.icl_value)
+          period_month: month,
+          period_year: year,
+          icl_value: value
         })
       })
 
@@ -158,6 +183,31 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
 
   const handleCreateIPC = async () => {
     try {
+      // Validate form data
+      if (!ipcFormData.period_month || !ipcFormData.period_year || !ipcFormData.ipc_value) {
+        toast.error('Todos los campos son requeridos')
+        return
+      }
+
+      const month = parseInt(ipcFormData.period_month)
+      const year = parseInt(ipcFormData.period_year)
+      const value = parseFloat(ipcFormData.ipc_value)
+
+      if (isNaN(month) || month < 1 || month > 12) {
+        toast.error('Mes inválido')
+        return
+      }
+
+      if (isNaN(year) || year < 2020 || year > 2030) {
+        toast.error('Año inválido (2020-2030)')
+        return
+      }
+
+      if (isNaN(value) || value < 0) {
+        toast.error('Valor IPC inválido')
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         toast.error('No active session')
@@ -171,9 +221,9 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          period_month: parseInt(ipcFormData.period_month),
-          period_year: parseInt(ipcFormData.period_year),
-          ipc_value: parseFloat(ipcFormData.ipc_value)
+          period_month: month,
+          period_year: year,
+          ipc_value: value
         })
       })
 
@@ -196,6 +246,31 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
     if (!editingICL) return
 
     try {
+      // Validate form data
+      if (!iclFormData.period_month || !iclFormData.period_year || !iclFormData.icl_value) {
+        toast.error('Todos los campos son requeridos')
+        return
+      }
+
+      const month = parseInt(iclFormData.period_month)
+      const year = parseInt(iclFormData.period_year)
+      const value = parseFloat(iclFormData.icl_value)
+
+      if (isNaN(month) || month < 1 || month > 12) {
+        toast.error('Mes inválido')
+        return
+      }
+
+      if (isNaN(year) || year < 2020 || year > 2030) {
+        toast.error('Año inválido (2020-2030)')
+        return
+      }
+
+      if (isNaN(value) || value < 0) {
+        toast.error('Valor ICL inválido')
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         toast.error('No active session')
@@ -209,9 +284,9 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          period_month: parseInt(iclFormData.period_month),
-          period_year: parseInt(iclFormData.period_year),
-          icl_value: parseFloat(iclFormData.icl_value)
+          period_month: month,
+          period_year: year,
+          icl_value: value
         })
       })
 
@@ -235,6 +310,31 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
     if (!editingIPC) return
 
     try {
+      // Validate form data
+      if (!ipcFormData.period_month || !ipcFormData.period_year || !ipcFormData.ipc_value) {
+        toast.error('Todos los campos son requeridos')
+        return
+      }
+
+      const month = parseInt(ipcFormData.period_month)
+      const year = parseInt(ipcFormData.period_year)
+      const value = parseFloat(ipcFormData.ipc_value)
+
+      if (isNaN(month) || month < 1 || month > 12) {
+        toast.error('Mes inválido')
+        return
+      }
+
+      if (isNaN(year) || year < 2020 || year > 2030) {
+        toast.error('Año inválido (2020-2030)')
+        return
+      }
+
+      if (isNaN(value) || value < 0) {
+        toast.error('Valor IPC inválido')
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         toast.error('No active session')
@@ -248,9 +348,9 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          period_month: parseInt(ipcFormData.period_month),
-          period_year: parseInt(ipcFormData.period_year),
-          ipc_value: parseFloat(ipcFormData.ipc_value)
+          period_month: month,
+          period_year: year,
+          ipc_value: value
         })
       })
 
@@ -392,7 +492,13 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Valores ICL</h3>
-              <Dialog open={isICLDialogOpen} onOpenChange={handleICLDialogClose}>
+              <Dialog open={isICLDialogOpen} onOpenChange={(open) => {
+                if (open) {
+                  setIsICLDialogOpen(true)
+                } else {
+                  handleICLDialogClose()
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button size="sm">
                     <Plus className="h-4 w-4 mr-2" />
@@ -450,6 +556,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                     </div>
                     <div className="flex gap-2 pt-4">
                       <Button
+                        type="button"
                         variant="outline"
                         onClick={handleICLDialogClose}
                         className="flex-1"
@@ -457,6 +564,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                         Cancelar
                       </Button>
                       <Button
+                        type="button"
                         onClick={editingICL ? handleUpdateICL : handleCreateICL}
                         className="flex-1"
                       >
@@ -508,6 +616,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
+                              type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditICL(icl)}
@@ -516,7 +625,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
@@ -553,7 +662,13 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Valores IPC</h3>
-              <Dialog open={isIPCDialogOpen} onOpenChange={handleIPCDialogClose}>
+              <Dialog open={isIPCDialogOpen} onOpenChange={(open) => {
+                if (open) {
+                  setIsIPCDialogOpen(true)
+                } else {
+                  handleIPCDialogClose()
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button size="sm">
                     <Plus className="h-4 w-4 mr-2" />
@@ -611,6 +726,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                     </div>
                     <div className="flex gap-2 pt-4">
                       <Button
+                        type="button"
                         variant="outline"
                         onClick={handleIPCDialogClose}
                         className="flex-1"
@@ -618,6 +734,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                         Cancelar
                       </Button>
                       <Button
+                        type="button"
                         onClick={editingIPC ? handleUpdateIPC : handleCreateIPC}
                         className="flex-1"
                       >
@@ -669,6 +786,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
+                              type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditIPC(ipc)}
@@ -677,7 +795,7 @@ export function IndicesModal({ open, onOpenChange }: IndicesModalProps) {
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
