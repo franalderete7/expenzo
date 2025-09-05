@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -634,14 +635,10 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="initial_rent_amount" className="text-right">Monto Inicial *</Label>
-                <Input
+                <NumberInput
                   id="initial_rent_amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
                   value={formData.initial_rent_amount || ''}
-                  onChange={(e) => {
-                    const value = e.target.value
+                  onChange={(value) => {
                     setFormData({
                       ...formData,
                       initial_rent_amount: value === '' ? undefined : parseFloat(value) || undefined
@@ -670,14 +667,10 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="deposit_amount" className="text-right">Depósito</Label>
-                <Input
+                <NumberInput
                   id="deposit_amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
                   value={formData.deposit_amount || ''}
-                  onChange={(e) => {
-                    const value = e.target.value
+                  onChange={(value) => {
                     setFormData({
                       ...formData,
                       deposit_amount: value
@@ -982,14 +975,10 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_initial_rent_amount" className="text-right">Monto Inicial *</Label>
-              <Input
+              <NumberInput
                 id="edit_initial_rent_amount"
-                type="number"
-                min="0"
-                step="0.01"
                 value={formData.initial_rent_amount || ''}
-                onChange={(e) => {
-                  const value = e.target.value
+                onChange={(value) => {
                   setFormData({
                     ...formData,
                     initial_rent_amount: value === '' ? undefined : parseFloat(value) || undefined
@@ -1017,14 +1006,10 @@ export const ContractsTable = forwardRef<ContractsTableRef>((props, ref) => {
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_deposit_amount" className="text-right">Depósito</Label>
-              <Input
+              <NumberInput
                 id="edit_deposit_amount"
-                type="number"
-                min="0"
-                step="0.01"
                 value={formData.deposit_amount || ''}
-                onChange={(e) => {
-                  const value = e.target.value
+                onChange={(value) => {
                   setFormData({
                     ...formData,
                     deposit_amount: value

@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -838,13 +839,10 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
                 <Label htmlFor="amount" className="text-right">
                   Monto
                 </Label>
-                <Input
+                <NumberInput
                   id="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, amount: value })}
                   className="col-span-3"
                   placeholder="0.00"
                 />
@@ -1138,13 +1136,10 @@ export const ExpensesTable = forwardRef<ExpensesTableRef>((props, ref) => {
               <Label htmlFor="edit_amount" className="text-right">
                 Monto
               </Label>
-              <Input
+              <NumberInput
                 id="edit_amount"
-                type="number"
-                min="0"
-                step="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, amount: value })}
                 className="col-span-3"
                 placeholder="0.00"
               />
