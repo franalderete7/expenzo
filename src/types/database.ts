@@ -1,12 +1,12 @@
 // Database Types for Expenzo Application
 // Import entity types
-import type { Unit, Resident, Property, Admin, Expense, Contract } from './entities'
+import type { Unit, Resident, Property, Admin, Expense, Contract, PersonalTransaction } from './entities'
 
 // Re-export all entity types
 export * from './entities'
 
 // Re-export individual types for backward compatibility
-export type { Unit, Resident, Property, Admin, Expense, Contract }
+export type { Unit, Resident, Property, Admin, Expense, Contract, PersonalTransaction }
 
 export interface ICLValue {
   id: number
@@ -65,16 +65,6 @@ export interface Payment {
   created_at: string
 }
 
-export interface PersonalTransaction {
-  id: number
-  admin_id: number  // Points to admins.id
-  transaction_date: string
-  amount: number
-  description?: string
-  category: string
-  vendor?: string
-  created_at: string
-}
 
 // Form Types
 export interface PropertyFormData {
@@ -98,6 +88,7 @@ export interface ExpenseFormData {
   description?: string
   monthly_expense_summary_id?: number
 }
+
 
 
 

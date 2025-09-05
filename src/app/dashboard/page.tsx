@@ -5,6 +5,8 @@ import { PropertyProvider, useProperty } from '@/contexts/PropertyContext'
 import { DynamicSidebar } from '@/components/DynamicSidebar'
 import { Navbar } from '@/components/Navbar'
 import { PropertiesManager } from '@/components/PropertiesManager'
+import { PersonalTransactionsTable } from '@/components/PersonalTransactionsTable'
+import { ViewSwitcher } from '@/components/ViewSwitcher'
 import { Button } from '@/components/ui/button'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -25,7 +27,9 @@ function DashboardInner() {
   const residentsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
   const expensesTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
   const contractsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
+  const personalTransactionsTableRef = useRef<{ openCreateDialog: () => void } | null>(null)
   const [activeTab, setActiveTab] = useState<'units' | 'residents' | 'expenses' | 'contracts' | 'liquidaciones'>('units')
+  const [currentView, setCurrentView] = useState<'properties' | 'transactions'>('properties')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -69,8 +73,22 @@ function DashboardInner() {
     }
   }
 
+  const handleCreatePersonalTransaction = () => {
+    if (personalTransactionsTableRef.current) {
+      personalTransactionsTableRef.current.openCreateDialog()
+    }
+  }
+
   const handleTabChange = (tab: 'units' | 'residents' | 'expenses' | 'contracts' | 'liquidaciones') => {
     setActiveTab(tab)
+  }
+
+  const handleViewChange = (view: 'properties' | 'transactions') => {
+    setCurrentView(view)
+    // Clear selected property when switching to transactions view
+    if (view === 'transactions') {
+      selectProperty(null)
+    }
   }
 
   if (authLoading || propertyLoading) {
@@ -91,9 +109,19 @@ function DashboardInner() {
       <Navbar />
 
       {!selectedProperty ? (
-        /* Property Management View */
+        /* Main Dashboard View - Properties or Personal Transactions */
         <div className="min-h-[calc(100vh-64px)] p-6">
-          <PropertiesManager onPropertySelect={handlePropertySelect} />
+          {/* View Switcher */}
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <ViewSwitcher currentView={currentView} onViewChange={handleViewChange} />
+          </div>
+
+          {currentView === 'properties' ? (
+            <PropertiesManager onPropertySelect={handlePropertySelect} />
+          ) : (
+            <PersonalTransactionsTable ref={personalTransactionsTableRef} />
+          )}
         </div>
       ) : (
         /* Property-Specific View */
